@@ -83,13 +83,27 @@ def load_data(folder, filenames=[], **kwargs):
 
 # Load test or traininng data
 def load_input_data():
+
     pass
 
+# Bin data for use in checkerboard selection
+def bin_data():
+
+    return
+
+# Checkerboard method to avoid data bleed in prediction
+def checkerboard():
+    return
+
 # Split data into training and testing data
-def train_test_split():
-    pass
+def split_data(data, frac = 0.8, val=False, **kwargs):
+    if 'checkerboard' in kwargs:
+        pass
+    if 'seed' in kwargs:
+        seed = kwargs['seed']
+
+    return trainx, trainy, testx, testy
 
 # Balance out data for model input
 def bal_data():
     pass
-

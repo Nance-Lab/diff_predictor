@@ -36,7 +36,19 @@ def rnn_lstm_model(trainx, trainy, testx, testy):
     _, accuracy = model.evaluate(testx, testy, batch_size=batch_size, verbose=verbose)
     return accuracy
 
-def rnn_lstm_cnn_model():
+def rnn_lstm_cnn_model(trainx, trainy, testx, testy):
+    verbose, epochs, batch_size = 0, 15, 64
+    n_timesteps, n_features, n_outputs = trainx.shape[1], trainx.shape[2], trainy.shape[1]
+    model = Sequential()
+    model.add(Conv1D())
+    model.add(MaxPooling1D())
+    model.add(Conv1D())
+    model.add(MaxPooling1D())
+    model.add(Conv1D())
+    model.add(MaxPooling1D())
+    model.add(LSTM(100, input_shape=(n_timesteps, n_features)))
+    model.add(Dropout(0.5))
+    model.add(Dense(100, activation = 'relu'))
 
     pass
 
@@ -54,5 +66,9 @@ def summarize_results(scores):
     print('Accuracy: %.3f%% (+/-%.3f)' % (m, s))
     return
 
-def gridsearch_rnn():
+def gridsearch_rnn(params):
+    for k, v, in params:
+        for val in v:
+            pass
+
     pass
