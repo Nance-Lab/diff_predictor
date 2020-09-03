@@ -1,8 +1,14 @@
 import os
+import core
+from os import listdir
+from os.path import isfile, join
+import numpy as np
+import csv
 import boto3
 import pandas as pd
 import diff_classifier.aws as aws
 from itertools import cycle
+
 
 def load_data(folder, filenames=[], **kwargs):
     """
@@ -55,7 +61,7 @@ def load_data(folder, filenames=[], **kwargs):
                 file_path = os.path.join(folder, filename)
                 print(file_path)
                 aws.download_s3(file_path, filename, bucket_name=bucket)
-                file_data = pd.read_csv(filename, encoding = "ISO-8859-1", index_col='Unnamed: 0')
+                file_data = pd.read_csv(filename, encoding="ISO-8859-1", index_col='Unnamed: 0')
                 if file_tag:
                     size = file_data.shape[0]
                     file_data['Tag'] = pd.Series(size*[file_tag], index=file_data.index)
@@ -81,29 +87,50 @@ def load_data(folder, filenames=[], **kwargs):
             print(f'Skipped!: {filename}: {err}')
     return data
 
-# Load test or traininng data
-def load_input_data():
 
-    pass
+# Takes in a path and list of keywords. Returns a list of filenames
+# that are within the path that contain one of the keyword in the list.
+# Set keyword to "" to get all files in the path.
+def get_files(path, keywords = ["features_ OR msd_"]):
+    keywords = [i.split('OR') for i in list(keywords)]
+    keywords = [list(map(lambda x:x.strip(), i)) for i in keywords]
+    files = [f for f in listdir(path) if isfile(join(path, f))]
+    file_list = []
+    for filename in files:
+        kwds_in = all(any(k in filename for k in ([keyword]*isinstance(keyword, str) or keyword)) for keyword in keywords)
+        if (kwds_in):
+            file_list.append(filename)
+    return file_list
 
-# Bin data for use in checkerboard selection
-def bin_data():
 
-    return
+# Pre: Both files must exhist; Feature must be in the feature file
+# Throws a FileNotFoundError exception if preconditions not met
+#
+# Adds a feature from produced features file to the track file.
+def combine_track(trackFile, feature="type"):
+    trackDF = pd.read_csv(trackFile)
+    featureDF = find_pair(trackFile)
+    trackDF[feature] = np.nan
+    maxFrames = int(trackDF["Frame"].max())
+    maxTracks = int(trackDF["Track_ID"].max())
+    for i in range(int(maxTracks)+1):
+        trackFeature = featureDF[feature].iloc[i]
+        trackDF[feature].iloc[(maxFrames)*(i + 1) + i] = trackFeature
+        return trackDF
 
-# Checkerboard method to avoid data bleed in prediction
-def checkerboard():
-    return
 
-# Split data into training and testing data
-def split_data(data, frac = 0.8, val=False, **kwargs):
-    if 'checkerboard' in kwargs:
-        pass
-    if 'seed' in kwargs:
-        seed = kwargs['seed']
-
-    return trainx, trainy, testx, testy
-
-# Balance out data for model input
-def bal_data():
-    pass
+# Trys to find the feature file pair for either msd_ or Traj_
+# Return the pd.DataFrame of that pair if found.
+def find_pair(filename):
+    '''
+    Trys to find the feature file pair for either msd_ or Traj_ and 
+    Returns the pd.DataFrame of that pair if found.
+    '''
+    try:
+        filename = filename.replace("msd_", "").replace("Traj_", "")
+        filename = filename.split("/")
+        filename[-1] = "features_" + filename[-1]
+        featureFile = "/".join(filename)
+        return pd.read_csv(featureFile)
+    except FileNotFoundError:
+        print("File pair could not be found")
