@@ -1,0 +1,15 @@
+python==3.7.6
+coverage==4.5.2
+coveralls
+pytest==4.1.0
+numpy
+scipy
+pandas
+matplotlib 
+ipython
+jupyter
+scikit-learn == 0.23.1
+sklearn
+boto3
+shapely == 1.7.0
+shap == 0.35.0
