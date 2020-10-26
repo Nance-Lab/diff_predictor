@@ -1,12 +1,26 @@
+import sys
 import pandas as pd
 import numpy as np
-import core
-
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 
 
+if 'core' not in sys.modules:
+    import core
+
+
 def balance_data(df, target, **kwargs):
+    """
+    Balance spatial data using undersampling. Assumes input will 
+    be a dataframe and data will be used for categorical classification
+    
+    Parameters
+    ----------
+    
+    Returns
+    -------
+    
+    """
     if 'random_state' not in kwargs:
         random_state = 1
     else:
@@ -29,6 +43,14 @@ def balance_data(df, target, **kwargs):
 
 
 def checkerboard(size):
+    """
+    Parameters
+    ----------
+    
+    Returns
+    -------
+    
+    """
     rows = int(size/2)
     checks = list(range(0, size*size, size+1))
     for i in range(1, rows):
@@ -46,6 +68,14 @@ def checkerboard(size):
 
 @deprecated("Old method using checkerboard, use other method")
 def bin_data_checkerboard(df):
+    """
+    Parameters
+    ----------
+    
+    Returns
+    -------
+    
+    """
     bins = list(range(0, 2048+1, 256))
     df['binx'] = pd.cut(df.X, bins, labels=[0, 1, 2, 3, 4, 5, 6, 7],
                         include_lowest=True)
@@ -62,6 +92,14 @@ def bin_data_checkerboard(df):
 
 
 def bin_data(df, res=128):
+    """
+    Parameters
+    ----------
+    
+    Returns
+    -------
+    
+    """
     assert not 2048 % res and res >= 128, \
         "resolution needs to be a factor of 2048 and > 128"
     bins = list(range(0, 2048+1, res))
@@ -79,6 +117,14 @@ def bin_data(df, res=128):
 
 @deprecated("Old method using checkerboard, use other method")
 def checkerboard_split(df, target, test_val_split=1.0, seed=1234):
+    """
+    Parameters
+    ----------
+    
+    Returns
+    -------
+    
+    """
     np.random.seed(seed)
     le = preprocessing.LabelEncoder()
     df['encoded_target'] = le.fit_transform(df[target])
@@ -101,6 +147,14 @@ def checkerboard_split(df, target, test_val_split=1.0, seed=1234):
 
 
 def split_data(df, target, train_split, test_val_split=1.0, seed=1234):
+    """
+    Parameters
+    ----------
+    
+    Returns
+    -------
+    
+    """
     np.random.seed(seed)
     le = preprocessing.LabelEncoder()
     df['encoded_target'] = le.fit_transform(df[target])
@@ -125,6 +179,14 @@ def split_data(df, target, train_split, test_val_split=1.0, seed=1234):
 
 
 def get_lengths(df, X_train, X_test, X_val=None):
+    """
+    Parameters
+    ----------
+    
+    Returns
+    -------
+    
+    """
     print(f'Tot before split: {len(df)}')
     print(f'Training: {len(X_train)} ({len(X_train)/len(df):.3f}%)')
     print(f'Testing: {len(X_test)} ({len(X_test)/len(df):.3f}%)')

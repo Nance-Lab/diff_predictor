@@ -2,17 +2,89 @@ import warnings
 import functools
 import inspect
 import time
+import sys
+import pathlib
+from datetime import datetime 
 
 
 string_types = (type(b''), type(u''), type(f''))
 
 
+class tcolor:
+    ResetAll = "\033[0m"
+
+    Bold       = "\033[1m"
+    Dim        = "\033[2m"
+    Underlined = "\033[4m"
+    Blink      = "\033[5m"
+    Reverse    = "\033[7m"
+    Hidden     = "\033[8m"
+
+    ResetBold       = "\033[21m"
+    ResetDim        = "\033[22m"
+    ResetUnderlined = "\033[24m"
+    ResetBlink      = "\033[25m"
+    ResetReverse    = "\033[27m"
+    ResetHidden     = "\033[28m"
+
+    Default      = "\033[39m"
+    Black        = "\033[30m"
+    Red          = "\033[31m"
+    Green        = "\033[32m"
+    Yellow       = "\033[33m"
+    Blue         = "\033[34m"
+    Magenta      = "\033[35m"
+    Cyan         = "\033[36m"
+    LightGray    = "\033[37m"
+    DarkGray     = "\033[90m"
+    LightRed     = "\033[91m"
+    LightGreen   = "\033[92m"
+    LightYellow  = "\033[93m"
+    LightBlue    = "\033[94m"
+    LightMagenta = "\033[95m"
+    LightCyan    = "\033[96m"
+    White        = "\033[97m"
+
+    BackgroundDefault      = "\033[49m"
+    BackgroundBlack        = "\033[40m"
+    BackgroundRed          = "\033[41m"
+    BackgroundGreen        = "\033[42m"
+    BackgroundYellow       = "\033[43m"
+    BackgroundBlue         = "\033[44m"
+    BackgroundMagenta      = "\033[45m"
+    BackgroundCyan         = "\033[46m"
+    BackgroundLightGray    = "\033[47m"
+    BackgroundDarkGray     = "\033[100m"
+    BackgroundLightRed     = "\033[101m"
+    BackgroundLightGreen   = "\033[102m"
+    BackgroundLightYellow  = "\033[103m"
+    BackgroundLightBlue    = "\033[104m"
+    BackgroundLightMagenta = "\033[105m"
+    BackgroundLightCyan    = "\033[106m"
+    BackgroundWhite        = "\033[107m"
+    
+        
+        
+def change_dir(directory = '.'):
+    '''
+    Simple funciton to change current directory.
+    '''
+    chdir(directory)
+    workbook = getcwd()
+    print(f'Using current directory for loading/saving: ' + 
+          tcolor.Blue + tcolor.Bold + f'{workbook}' + tcolor.ResetAll)
+    print(f'To change current directory, call change_dir(...)')
+
+    
+change_dir('.')
+        
+    
 def deprecated(reason):
-    """
-    Decorator which can be sused to mark functions
+    '''
+    Decorator which can be used to mark functions
     as deprecated. This will result in a warning being
     emitted when the decorated funciton is called.
-    """
+    '''
     if isinstance(reason, string_types):
         # @deprecated is used with a reason attached
         # Only works for functions
@@ -22,8 +94,7 @@ def deprecated(reason):
             @functools.wraps(func1)
             def new_func1(*args, **kwargs):
                 warnings.simplefilter('always', DeprecationWarning)
-                warnings.warn(fmt1.format(name=repr(func1.__name__),
-                                          reason=reason),
+                warnings.warn(fmt1.format(name=repr(func1.__name__), reason=reason),
                               category=DeprecationWarning,
                               stacklevel=2)
                 warnings.simplefilter('default', DeprecationWarning)
@@ -32,7 +103,7 @@ def deprecated(reason):
         return decorator
     elif inspect.isfunction(reason):
         func2 = reason
-        fmt2 = "Call to deprecated funciton {name}."
+        fmt2 = "Call to deprecated function {name}."
         @functools.wraps(func2)
         def new_func2(*args, **kwargs):
             warnings.simplefilter('always', DeprecationWarning)
@@ -44,13 +115,13 @@ def deprecated(reason):
         return new_func2
     else:
         raise TypeError(repr(type(reason)))
-
-
+    
+        
 def timer(func):
-    """
+    '''
     Decorator which will time funciton from start to
     end.
-    """
+    '''
     @functools.wraps(func)
     def decorator_timer(*args, **kwargs):
         print(f"Call to funciton {repr(func.__name__)} with timer set on")
@@ -63,47 +134,29 @@ def timer(func):
     return decorator_timer
 
 
-def search_nested_dict(value, keyword):
+def print_log(func, outputfile = './out.txt', access = 'w'):
     '''
-    Function which searches a nested dictionary
-    recurrently for a keyword.
-    Parameters
-    ----------
-    value : dict
-        dictionary to search through
-    keyword : str
-        keyword to find withing dictionary
-    Returns
-    -------
-    result
-        resulting value of search
+    Decorator which saves all print statement to a log file. Note
+    that this method temporarily changes sys.stdout which may not 
+    be desired.
     '''
-    result = None
-    if keyword in value.keys() and not isinstance(value[keyword], dict):
-        return(value[keyword])
-    else:
-        for key in value.keys():
-            if isinstance(value[key], dict):
-                result = search_nested_dict(value[key], keyword)
-            if result is not None:
-                break
-    return result
-
-
-def is_numeric(value):
-    '''
-    Parameters
-    ----------
-    value : str
-        String that will be checked if it can be converted to a number
-    Returns
-    -------
-    Either the float value if string can be turned into float or 
-    boolean false
-    '''
-    try:
-        return float(value)
-    except Exception:
-        return False
-    
-    
+    @functools.wraps(func)
+    def decorator_log(*args, **kwargs):
+        print(f"Call to function {repr(func.__name__)} " +
+              f"with print output saved to {outputfile}.")
+        orig_stdout = sys.stdout
+        f = open(outputfile, access)
+        sys.stdout = f 
+        header = (f'RUNNING FUNCTION {repr(func.__name__)} | ' +
+                  f'MONTH-DAY-YEAR ' +
+                  datetime.today().strftime("%b-%d-%Y | ") +
+                  f'HOUR:MINUTE:SECOND ' +
+                  datetime.today().strftime("%H:%M:%S"))
+        print('-'*90)
+        print("{:<90}".format(header))
+        print()
+        ret_val = func(*args, **kwargs)
+        f.close()
+        sys.stdout = orig_stdout
+        return ret_val
+    return decorator_log

@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import pandas as pd
 import xgboost as xgb
@@ -13,6 +14,8 @@ from xgboost import callback
 from xgboost.core import CallbackEnv
 from xgboost.core import EarlyStopException
 
+if 'core' not in sys.modules:
+    import core
 
 def bin_fold(X_train, nfold):
     '''
@@ -166,6 +169,8 @@ def cv(params, X_train, y_train, features=None, num_boost_round=20, nfold=3,
             .. code-block:: python
 
             [xgb.callback.reset_learning_rate(custom_rates)]
+    
+    
     Returns
     -------
     evaluation history : list(String)
@@ -311,18 +316,33 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
         calculation for evaluation and will be compared to the next params
         in grid search
     nfold : int : 5
+        Number of folds
     num_boost_round : int : 2000
     early_stopping_rounds : int : 3
-    Keyword Args
-    ------------
-    use_gpu : boolean
+    
+    Optional Parameters
+    -------------------
+    use_gpu : boolean : False
+        Use cuda processing if gpu supports it
     metrics : list
-    early_break : int
-    thresh : float
-    seed : int
+        xgboost metrics to track
+    early_break : int : 5
+        maximum number of times the random gridsearch while difference in 
+        starting and ending evaluation value is within the given threshold
+    thresh : float : 0.01
+        allowed threshold between difference in starting and ending evaluation
+        value
+    seed : int : 1111
+        random seed to start on.
     gs_params : dict
+        extra parameters to use in gridsearch. Note: function will not optimize
+        these parameters
     Returns
     -------
+    best_model : 
+    best_param : 
+    best_eval : 
+    best_boost_rounds : 
     '''
     params = {**init_params}
     if 'use_gpu' in kwargs and kwargs['use_gpu']:
@@ -375,7 +395,7 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
     def _gs_helper(var1n, var2n, best_model, best_param,
                    best_eval, best_boost_rounds):
         '''
-        Helper funciton for 
+        Helper function for xgb_paramsearch. 
         '''
         local_param = {**best_param}
         for var1, var2 in gs_param:
@@ -453,7 +473,7 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
         seed+=1
     return best_model, best_param, best_eval, best_boost_rounds
 
-@timer
+
 def train(param, dtrain, dtest, dval=None, evals=[(dtrain, 'train')], num_round=2000):
     '''
     Parameters
@@ -568,6 +588,7 @@ def get_dmatrix(df_tuple, columns):
     for (x_data, y_data) in zip(df_tuple[::2], df_tuple[1::2]):
         result = np.append(result, [xgb.DMatrix(x_data[columns], label=y_data)])
     return result
+
 
 def get_params(params, metadata):
     '''

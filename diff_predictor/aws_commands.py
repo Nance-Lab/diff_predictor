@@ -1,7 +1,9 @@
 import boto3
 
-def get_s3_keys(bucket, prefix='', suffix=''):
+# Note: All methods in this file require either to be in an AWS EC2 instance
+#       or to have an AWSCLI installed and configured.
 
+def get_s3_keys(bucket, prefix='', suffix=''):
     """
     Generate the keys in an S3 bucket. Uses bucket name with optional
     prefix or suffix values.
@@ -16,8 +18,8 @@ def get_s3_keys(bucket, prefix='', suffix=''):
         Only generate keys that end with this suffix
         useful for specifying filetype).
     """
-
-
+    
+    
     s3 = boto3.client('s3')
     kwargs = {'Bucket': bucket, 'Prefix': prefix}
     while True:
@@ -31,8 +33,8 @@ def get_s3_keys(bucket, prefix='', suffix=''):
         except KeyError:
             break
 
+            
 def glacier_restore(bucket_name, remote_folder, keyword='', days=60, tier='Standard'):
-
     """"
     Restores files stores in aws s3 given a keyword or set of keywords. Will
     search through given bucket/folder for keywords and if the files are in
@@ -152,14 +154,12 @@ def copy_files(source_bucket, dest_bucket, source_folder, dest_folder, keyword='
                                          [:-1]), object.key.split("/")[-1])
             if copy_folder in dest_folder and any(k in copy_filename for k in ([keyword]*isinstance(keyword, str) or keyword)):
                 dest_list.append(object.key.split("/")[-1])
-
     if '' in keyword:
         press = input(
             f'Warning!: Do you really want to copy ALL files in {bucket.name}/{source_folder}? (Y/N): ')
         if press != 'Y':
             print('Canceling copy')
             return
-
     for object in obj_list:
         copy_source = {
             'Bucket': object.bucket_name,
