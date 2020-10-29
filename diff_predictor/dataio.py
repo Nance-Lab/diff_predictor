@@ -1,5 +1,5 @@
 import os
-import core
+import sys
 from os import listdir
 from os.path import isfile, join
 import numpy as np
@@ -8,6 +8,10 @@ import boto3
 import pandas as pd
 import diff_classifier.aws as aws
 from itertools import cycle
+
+
+if 'core' not in sys.modules:
+    import core
 
 
 def load_data(folder, filenames=[], **kwargs):
@@ -88,10 +92,24 @@ def load_data(folder, filenames=[], **kwargs):
     return data
 
 
-# Takes in a path and list of keywords. Returns a list of filenames
-# that are within the path that contain one of the keyword in the list.
-# Set keyword to "" to get all files in the path.
 def get_files(path, keywords = ["features_ OR msd_"]):
+    """
+    Takes in a path and list of keywords. Returns a list of filenames
+    that are within the path that contain one of the keyword in the list.
+    Set keyword to "" to get all files in the path.
+    
+    Parameters
+    ----------
+    path : string
+        file path
+    keywords : string or [string] : ["features_ OR msd_"]
+        keywords to look for in the file path. 
+        
+    Returns
+    -------
+    file_list : list
+        list of files in the path
+    """
     keywords = [i.split('OR') for i in list(keywords)]
     keywords = [list(map(lambda x:x.strip(), i)) for i in keywords]
     files = [f for f in listdir(path) if isfile(join(path, f))]
