@@ -1,6 +1,6 @@
 diff_classifier
 *.egg-info
-diff_predictor/__pycache__
+*__pycache__
 *.amlignore
 *-checkpoint.ipynb
 *.amltmp
