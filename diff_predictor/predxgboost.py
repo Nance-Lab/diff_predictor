@@ -15,7 +15,7 @@ from xgboost.core import CallbackEnv
 from xgboost.core import EarlyStopException
 
 if 'core' not in sys.modules:
-    import core
+    from diff_predictor import core
 
 def bin_fold(X_train, nfold):
     '''
@@ -390,8 +390,7 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
                     early_stopping_rounds=early_stopping_rounds, 
                     metrics=metrics)
     best_eval = best_model[f"test-{params['eval_metric']}-mean"].min()
-    best_boost_rounds = /
-        best_model[f"test-{params['eval_metric']}-mean"].idxmin()
+    best_boost_rounds = best_model[f"test-{params['eval_metric']}-mean"].idxmin()
     def _gs_helper(var1n, var2n, best_model, best_param,
                    best_eval, best_boost_rounds):
         '''
@@ -411,8 +410,7 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
                           early_stopping_rounds=early_stopping_rounds, 
                           metrics=metrics)
             cv_eval = cv_model[f"test-{local_param['eval_metric']}-mean"].min()
-            boost_rounds = /
-                cv_model[f"test-{local_param['eval_metric']}-mean"].idxmin()
+            boost_rounds = cv_model[f"test-{local_param['eval_metric']}-mean"].idxmin()
             if(eval_f(cv_eval, best_eval)):
                 best_model = cv_model
                 best_param[var1n] = var1
@@ -474,7 +472,7 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
     return best_model, best_param, best_eval, best_boost_rounds
 
 
-def train(param, dtrain, dtest, dval=None, evals=[(dtrain, 'train')], num_round=2000):
+def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000):
     '''
     Parameters
     ----------
