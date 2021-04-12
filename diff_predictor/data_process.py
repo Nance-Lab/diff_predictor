@@ -1,6 +1,7 @@
 import sys
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import StandardScaler, scale
 
 def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'):
     """
@@ -102,5 +103,28 @@ def bin_data(bal_ecm, resolution=128):
     bal_ecm = bal_ecm[np.isfinite(bal_ecm['bins'])]
     bal_ecm['bins'] = bal_ecm['bins'].astype(int)
     return bal_ecm
-    return bal_ecm
     
+
+def scale_features(df, columns):
+    """
+    Scales the features in a dataframe using sklearn functions. Needed before using unsupervised learning algorithms
+
+    Parameters
+    ----------
+    df: pandas.DataFrame
+        dataframe to be scaled
+    columns: list
+        list of column names to be to be scaled. Only use numerical columns
+    
+    Returns
+    -------
+    scaled_features: pandas.DataFrame
+        dataframe of the selected features with scaled values
+    """
+    features_df = df[columns]
+    features_df = features_df[~features_df.isin([np.nan, np.inf, -np.inf]).any(1)] # removes rows with nan or inf points
+    ss = StandardScaler()
+    scaled_data = pd.DataFrame(ss.fit_transform(features_df.values), columns=features_df.columns)
+    scaled_data = scale(scaled_data, axis=1)
+    scaled_features = pd.DataFrame(scaled_data, columns = features_df.columns)
+    return scaled_features
