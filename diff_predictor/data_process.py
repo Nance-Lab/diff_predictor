@@ -27,19 +27,22 @@ def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'
     video_num = 0
     for filename in filelist:
             fstats = pd.read_csv(dataset_path + filename, encoding = "ISO-8859-1", index_col='Unnamed: 0')
-            print('{} size: {}'.format(filename, fstats.shape))
+            #print('{} size: {}'.format(filename, fstats.shape))
             
             for i in range(0, len(targets)):
+                print(targets[i])
                 if targets[i] in filename:
+                    print('Adding file {} size: {}'.format(filename, fstats.shape))
                     fstats[target_col_name] = pd.Series(fstats.shape[0]*[targets[i]], index=fstats.index)
-                    break
 
-            fstats['Video Number'] = pd.Series(fstats.shape[0]*[video_num], index=fstats.index)
-            if fstats_tot is None:
-                fstats_tot = fstats
-            else:
-                fstats_tot = fstats_tot.append(fstats, ignore_index=True)
-            video_num += 1
+                    fstats['Video Number'] = pd.Series(fstats.shape[0]*[video_num], index=fstats.index)
+                    if fstats_tot is None:
+                        fstats_tot = fstats
+                    else:
+                        fstats_tot = fstats_tot.append(fstats, ignore_index=True)
+                    video_num += 1
+                    #break
+
             
     return fstats_tot
 

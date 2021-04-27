@@ -4,6 +4,7 @@ import pandas as pd
 import xgboost as xgb
 import shap
 from matplotlib import colors as plt_colors
+import operator
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
@@ -13,6 +14,7 @@ from xgboost.training import CVPack
 from xgboost import callback
 from xgboost.core import CallbackEnv
 from xgboost.core import EarlyStopException
+from xgboost.core import STRING_TYPES
 
 if 'core' not in sys.modules:
     from diff_predictor import core
@@ -75,8 +77,8 @@ def mknfold(X_train, y_train, nfold, param, evals=(), features=None):
     wt_list : list
         list of weights for each fold. This is the size of each fold
     '''
-    if not features:
-        features = X_train.columns
+    #if not features:
+        #features = X_train.columns
     out_idset, wt_list = bin_fold(X_train, nfold)
     in_idset = [np.concatenate([out_idset[i]
                                 for i in range(nfold) if k != i])
@@ -177,8 +179,8 @@ def cv(params, X_train, y_train, features=None, num_boost_round=20, nfold=3,
     '''
     if isinstance(metrics, str):
         metrics = [metrics]
-    if not features:
-        features = X_train.columns
+    #if not features:
+        #features = X_train.columns
     if isinstance(params, list):
         _metrics = [x[1] for x in params if x[0] == 'eval_metric']
         params = dict(params)
