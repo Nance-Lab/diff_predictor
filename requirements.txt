@@ -12,3 +12,4 @@ sklearn
 boto3
 shapely == 1.7.0
 shap == 0.35.0
+xgboost == 1.2.1
