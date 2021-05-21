@@ -30,7 +30,6 @@ def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'
             #print('{} size: {}'.format(filename, fstats.shape))
             
             for i in range(0, len(targets)):
-                print(targets[i])
                 if targets[i] in filename:
                     print('Adding file {} size: {}'.format(filename, fstats.shape))
                     fstats[target_col_name] = pd.Series(fstats.shape[0]*[targets[i]], index=fstats.index)

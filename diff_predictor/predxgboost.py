@@ -7,7 +7,7 @@ from matplotlib import colors as plt_colors
 import operator
 
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from sklearn import preprocessing
 
 from xgboost.training import CVPack
@@ -518,9 +518,9 @@ def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000):
     true_label = dtest.get_label()
     ypred = model.predict(dtest)
     preds = [np.where(x == np.max(x))[0][0] for x in ypred]
-    acc = metrics.accuracy_score(true_label, preds)
+    acc = accuracy_score(true_label, preds)
     print("Accuracy:",acc)
-    return model, acc
+    return model, acc, true_label, preds
 
 
 def save(model, filename):
