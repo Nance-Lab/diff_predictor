@@ -1,4 +1,8 @@
-from azureml.core import Run
+from azureml.core import Workspace, Dataset, Run
+from azureml.core.conda_dependencies import CondaDependencies
+from azureml.core import Workspace, Experiment, Environment, ScriptRunConfig, Run
+from azureml.core.conda_dependencies import CondaDependencies
+
 import boto3
 import pandas as pd
 import numpy as np
@@ -6,6 +10,7 @@ import matplotlib.pyplot as plt
 from os import listdir, getcwd, chdir
 from os.path import isfile, join
 import os
+import random
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 from sklearn.metrics import classification_report
@@ -553,7 +558,6 @@ def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'
             #print('{} size: {}'.format(filename, fstats.shape))
             
             for i in range(0, len(targets)):
-                print(targets[i])
                 if targets[i] in filename:
                     print('Adding file {} size: {}'.format(filename, fstats.shape))
                     fstats[target_col_name] = pd.Series(fstats.shape[0]*[targets[i]], index=fstats.index)
@@ -567,6 +571,7 @@ def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'
                     #break
 
             
+    return fstats_tot
     return fstats_tot
 
 def balance_data(df, target, **kwargs):
@@ -640,116 +645,130 @@ dataset = Dataset.get_by_name(workspace, name='age_data')
 dataset.download(target_path='.', overwrite=True)
 
 datasetpath = getcwd()
-print('Current Notebook Dir: ' + workbookDir)
+print('Current Notebook Dir: ' + datasetpath)
 
 # for file in dataset.to_path():
 #     print(file)
 #     df = pd.read_csv(workbookDir + file)
 #     print(df.shape)
-filelist = [f for f in listdir(dataset.to_path()) if isfile(join(dataset.to_path(), f)) and 'feat' in f]
+print('generating filelist')
+#filelist = [f for f in listdir(dataset.to_path()) if isfile(join(dataset.to_path(), f)) and 'feat' in f]
+filelist = []
+for file in dataset.to_path():
+    filelist.append(file)
+print('showing four oath examples')
+print(filelist[0:4])
 
+print('generating filelist subset')
 sampled_filelist = []
-class_lens = [0, 15, 30, 45]
+class_lens = [0, 15, 30, 45, 60, 75] # this is specific to the age data set!
 for i in range(len(class_lens)-1):
-    rand_integers = random.sample(set(np.arange(class_lens[i], class_lens[i+1])), 15)
+    rand_integers = random.sample(set(np.arange(class_lens[i], class_lens[i+1])), 5)
     for rand_int in rand_integers:
         sampled_filelist.append(filelist[rand_int])
+        print(filelist[rand_int])
 
-fstats_tot = generate_fullstats(dataset_path, sampled_filelist, ['P14', 'NT', 'P70'], 'age')
-print(fstats_tot).head()
+print('running generate_fullstats function on subset filelist')
+fstats_tot = generate_fullstats(datasetpath, sampled_filelist, ['P14', 'NT', 'P70'], 'age')
+print(fstats_tot.head())
 
-# features = [
-#     'alpha', # Fitted anomalous diffusion alpha exponenet
-#     'D_fit', # Fitted anomalous diffusion coefficient
-#     'kurtosis', # Kurtosis of track
-#     'asymmetry1', # Asymmetry of trajecory (0 for circular symmetric, 1 for linear)
-#     'asymmetry2', # Ratio of the smaller to larger principal radius of gyration
-#     'asymmetry3', # An asymmetric feature that accnts for non-cylindrically symmetric pt distributions
-#     'AR', # Aspect ratio of long and short side of trajectory's minimum bounding rectangle
-#     'elongation', # Est. of amount of extension of trajectory from centroid
-#     'boundedness', # How much a particle with Deff is restricted by a circular confinement of radius r
-#     'fractal_dim', # Measure of how complicated a self similar figure is
-#     'trappedness', # Probability that a particle with Deff is trapped in a region
-#     'efficiency', # Ratio of squared net displacement to the sum of squared step lengths
-#     'straightness', # Ratio of net displacement to the sum of squared step lengths
-#     'MSD_ratio', # MSD ratio of the track
-# #     'frames', # Number of frames the track spans
-#     'Deff1', # Effective diffusion coefficient at 0.33 s
-#     'Deff2', # Effective diffusion coefficient at 3.3 s
-#     #'angle_mean', # Mean turning angle which is counterclockwise angle from one frame point to another
-#     #'angle_mag_mean', # Magnitude of the turning angle mean
-#     #'angle_var', # Variance of the turning angle
-#     #'dist_tot', # Total distance of the trajectory
-#     #'dist_net', # Net distance from first point to last point
-#     #'progression', # Ratio of the net distance traveled and the total distance
-#     'Mean alpha', 
-#     'Mean D_fit', 
-#     'Mean kurtosis', 
-#     'Mean asymmetry1', 
-#     'Mean asymmetry2',
-#     'Mean asymmetry3', 
-#     'Mean AR',
-#     'Mean elongation', 
-#     'Mean boundedness',
-#     'Mean fractal_dim', 
-#     'Mean trappedness', 
-#     'Mean efficiency',
-#     'Mean straightness', 
-#     'Mean MSD_ratio', 
-#     'Mean Deff1', 
-#     'Mean Deff2',
-#     ]
 
-# target = 'age'
+features = [
+    'alpha', # Fitted anomalous diffusion alpha exponenet
+    'D_fit', # Fitted anomalous diffusion coefficient
+    'kurtosis', # Kurtosis of track
+    'asymmetry1', # Asymmetry of trajecory (0 for circular symmetric, 1 for linear)
+    'asymmetry2', # Ratio of the smaller to larger principal radius of gyration
+    'asymmetry3', # An asymmetric feature that accnts for non-cylindrically symmetric pt distributions
+    'AR', # Aspect ratio of long and short side of trajectory's minimum bounding rectangle
+    'elongation', # Est. of amount of extension of trajectory from centroid
+    'boundedness', # How much a particle with Deff is restricted by a circular confinement of radius r
+    'fractal_dim', # Measure of how complicated a self similar figure is
+    'trappedness', # Probability that a particle with Deff is trapped in a region
+    'efficiency', # Ratio of squared net displacement to the sum of squared step lengths
+    'straightness', # Ratio of net displacement to the sum of squared step lengths
+    'MSD_ratio', # MSD ratio of the track
+#     'frames', # Number of frames the track spans
+    'Deff1', # Effective diffusion coefficient at 0.33 s
+    'Deff2', # Effective diffusion coefficient at 3.3 s
+    #'angle_mean', # Mean turning angle which is counterclockwise angle from one frame point to another
+    #'angle_mag_mean', # Magnitude of the turning angle mean
+    #'angle_var', # Variance of the turning angle
+    #'dist_tot', # Total distance of the trajectory
+    #'dist_net', # Net distance from first point to last point
+    #'progression', # Ratio of the net distance traveled and the total distance
+    'Mean alpha', 
+    'Mean D_fit', 
+    'Mean kurtosis', 
+    'Mean asymmetry1', 
+    'Mean asymmetry2',
+    'Mean asymmetry3', 
+    'Mean AR',
+    'Mean elongation', 
+    'Mean boundedness',
+    'Mean fractal_dim', 
+    'Mean trappedness', 
+    'Mean efficiency',
+    'Mean straightness', 
+    'Mean MSD_ratio', 
+    'Mean Deff1', 
+    'Mean Deff2',
+    ]
 
-# ecm = fstats_tot[features + [target, 'Track_ID', 'X', 'Y']]
-# ecm = ecm[~ecm[list(set(features) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)]       # Removing nan and inf data points
-# bal_ecm = balance_data(ecm, target)
-# sampled_df = bin_data(bal_ecm)
-# label_df = sampled_df['age']
-# features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID'], axis=1)
-# features = features_df.columns
+target = 'age'
 
-# seed = 1234
-# np.random.seed(seed)
-# train_split = 0.5
-# test_split = 0.5
+ecm = fstats_tot[features + [target, 'Track_ID', 'X', 'Y']]
+ecm = ecm[~ecm[list(set(features) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)]       # Removing nan and inf data points
+bal_ecm = balance_data(ecm, target)
+sampled_df = bin_data(bal_ecm)
+label_df = sampled_df['age']
+features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID'], axis=1)
+features = features_df.columns
 
-# le = preprocessing.LabelEncoder()
-# sampled_df['encoded_target'] = le.fit_transform(sampled_df[target])
+seed = 1234
+np.random.seed(seed)
+train_split = 0.5
+test_split = 0.5
 
-# training_bins = np.random.choice(sampled_df['bins'].unique(), int(len(sampled_df['bins'].unique())*train_split), replace=False)
+le = preprocessing.LabelEncoder()
+sampled_df['encoded_target'] = le.fit_transform(sampled_df[target])
 
-# X_train = sampled_df[sampled_df['bins'].isin(training_bins)]
-# X_test_val = sampled_df[~sampled_df['bins'].isin(training_bins)]
-# X_val, X_test = train_test_split(X_test_val, test_size=test_split, random_state=seed)
+training_bins = np.random.choice(sampled_df['bins'].unique(), int(len(sampled_df['bins'].unique())*train_split), replace=False)
 
-# y_train = X_train['encoded_target']
-# y_test = X_test['encoded_target']
-# y_val = X_val['encoded_target']
+X_train = sampled_df[sampled_df['bins'].isin(training_bins)]
+X_test_val = sampled_df[~sampled_df['bins'].isin(training_bins)]
+X_val, X_test = train_test_split(X_test_val, test_size=test_split, random_state=seed)
 
-# dtrain = xgb.DMatrix(X_train[features], label=y_train)
-# dtest = xgb.DMatrix(X_test[features], label=y_test)
-# dval = xgb.DMatrix(X_val[features], label=y_val)
+y_train = X_train['encoded_target']
+y_test = X_test['encoded_target']
+y_val = X_val['encoded_target']
 
-# param = {'max_depth': 3,
-#          'eta': 0.005,
-#          'min_child_weight': 0,
-#          'verbosity': 0,
-#          'objective': 'multi:softprob',
-#          'num_class': 3,
-#          'silent': 'True',
-#          'gamma': 5,
-#          'subsample': 0.15,
-#          'colsample_bytree': 0.8,
-#          'eval_metric': "mlogloss",
-#          # GPU integration will cut time in ~half:
-#          'gpu_id' : 0,
-#          'tree_method': 'gpu_hist',
-#          'predictor': 'gpu_predictor'
-#          }
+dtrain = xgb.DMatrix(X_train[features], label=y_train)
+dtest = xgb.DMatrix(X_test[features], label=y_test)
+dval = xgb.DMatrix(X_val[features], label=y_val)
 
-# (best_model, best_param, best_eval, best_boost_rounds) = predxgboost.xgb_paramsearch(X_train, y_train, features, init_params=param, nfold=5, num_boost_round=2000, early_stopping_rounds=3, use_gpu='True')
+param = {'max_depth': 3,
+         'eta': 0.005,
+         'min_child_weight': 0,
+         'verbosity': 0,
+         'objective': 'multi:softprob',
+         'num_class': 3,
+         'silent': 'True',
+         'gamma': 5,
+         'subsample': 0.15,
+         'colsample_bytree': 0.8,
+         'eval_metric': "mlogloss",
+         # GPU integration will cut time in ~half:
+         'gpu_id' : 0,
+         'tree_method': 'gpu_hist',
+         'predictor': 'gpu_predictor'
+         }
+
+print('beginning hyperparameter search')
+(best_model, best_param, best_eval, best_boost_rounds) = xgb_paramsearch(X_train, y_train, features, init_params=param, nfold=5, num_boost_round=2000, early_stopping_rounds=3, use_gpu='True')
+
+print('successfully found best hyperparameters:')
+print(best_param)
 
 # booster, acc, true_label, preds = train(best_param, dtrain, dtest, dval, evals=[(dtrain, 'train'), (dval, 'eval')], num_round=1000)
 
