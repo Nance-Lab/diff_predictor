@@ -3,10 +3,11 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
+from diff_predictor.core import deprecated
 
-
-if 'core' not in sys.modules:
-    import core
+# if 'core' not in sys.modules:
+#     from diff_predictor import core
+#     import core.deprecated
 
 
 def balance_data(df, target, **kwargs):
