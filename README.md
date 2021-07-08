@@ -22,7 +22,7 @@ The project has the following structure:
 │   ├── __init__.py
 │   ├── aws_commands.py
 │   ├── core.py
-|   |-- data_process.py
+│   ├── data_process.py
 │   ├── dataio.py
 │   ├── eval.py
 │   ├── predxgboost.py
