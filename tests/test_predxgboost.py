@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 import xgboost as xgb
+from diff_predictor.predxgboost import bin_fold, mknfold, cv, aggcv, xgb_paramsearch
+from diff_predictor.data_process import bin_data
+from diff_predictor.spatial import split_data
 
 # Creating reproduceable dataframe for testing
 np.random.seed(1234)
