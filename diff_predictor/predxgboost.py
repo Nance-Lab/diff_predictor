@@ -4,18 +4,20 @@ import pandas as pd
 import xgboost as xgb
 import shap
 from matplotlib import colors as plt_colors
+import operator
 
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from sklearn import preprocessing
 
 from xgboost.training import CVPack
 from xgboost import callback
 from xgboost.core import CallbackEnv
 from xgboost.core import EarlyStopException
+from xgboost.core import STRING_TYPES
 
 if 'core' not in sys.modules:
-    import core
+    from diff_predictor import core
 
 def bin_fold(X_train, nfold):
     '''
@@ -75,8 +77,8 @@ def mknfold(X_train, y_train, nfold, param, evals=(), features=None):
     wt_list : list
         list of weights for each fold. This is the size of each fold
     '''
-    if not features:
-        features = X_train.columns
+    #if not features:
+        #features = X_train.columns
     out_idset, wt_list = bin_fold(X_train, nfold)
     in_idset = [np.concatenate([out_idset[i]
                                 for i in range(nfold) if k != i])
@@ -177,8 +179,8 @@ def cv(params, X_train, y_train, features=None, num_boost_round=20, nfold=3,
     '''
     if isinstance(metrics, str):
         metrics = [metrics]
-    if not features:
-        features = X_train.columns
+    #if not features:
+        #features = X_train.columns
     if isinstance(params, list):
         _metrics = [x[1] for x in params if x[0] == 'eval_metric']
         params = dict(params)
@@ -390,8 +392,7 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
                     early_stopping_rounds=early_stopping_rounds, 
                     metrics=metrics)
     best_eval = best_model[f"test-{params['eval_metric']}-mean"].min()
-    best_boost_rounds = /
-        best_model[f"test-{params['eval_metric']}-mean"].idxmin()
+    best_boost_rounds = best_model[f"test-{params['eval_metric']}-mean"].idxmin()
     def _gs_helper(var1n, var2n, best_model, best_param,
                    best_eval, best_boost_rounds):
         '''
@@ -411,8 +412,7 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
                           early_stopping_rounds=early_stopping_rounds, 
                           metrics=metrics)
             cv_eval = cv_model[f"test-{local_param['eval_metric']}-mean"].min()
-            boost_rounds = /
-                cv_model[f"test-{local_param['eval_metric']}-mean"].idxmin()
+            boost_rounds = cv_model[f"test-{local_param['eval_metric']}-mean"].idxmin()
             if(eval_f(cv_eval, best_eval)):
                 best_model = cv_model
                 best_param[var1n] = var1
@@ -474,7 +474,7 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
     return best_model, best_param, best_eval, best_boost_rounds
 
 
-def train(param, dtrain, dtest, dval=None, evals=[(dtrain, 'train')], num_round=2000):
+def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000):
     '''
     Parameters
     ----------
@@ -518,9 +518,9 @@ def train(param, dtrain, dtest, dval=None, evals=[(dtrain, 'train')], num_round=
     true_label = dtest.get_label()
     ypred = model.predict(dtest)
     preds = [np.where(x == np.max(x))[0][0] for x in ypred]
-    acc = metrics.accuracy_score(true_label, preds)
+    acc = accuracy_score(true_label, preds)
     print("Accuracy:",acc)
-    return model, acc
+    return model, acc, true_label, preds
 
 
 def save(model, filename):
