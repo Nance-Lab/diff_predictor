@@ -48,15 +48,15 @@ All trademarks referenced herein are property of their respective holders.
 """
 
 NAME = "diff_predictor"
-MAINTAINER = "David Shackelford"
-MAINTAINER_EMAIL = "dash2927@uw.edu"
+MAINTAINER = "Nels Schimek"
+MAINTAINER_EMAIL = "nlsschim@uw.edu"
 DESCRIPTION = DESCRIPTION
 LONG_DESCRIPTION = LONG_DESCRIPTION
-URL = "https://github.com/dash2927/diff_predicto"
+URL = "https://github.com/Nance-Lab/diff_predictor"
 DOWNLOAD_URL = ""
 LICENSE = "MIT"
 AUTHOR = "David Shackelford"
-AUTHOR_EMAIL = "dash2927@uw.edu"
+AUTHOR_EMAIL = "david.c.shackelford@gmail.com"
 PLATFORMS = "OS Independent"
 MAJOR = _version_major
 MINOR = _version_minor
@@ -64,6 +64,9 @@ MICRO = _version_micro
 VERSION = __version__
 PACKAGE_DATA = {'diff_predictor': [pjoin('data', '*')]}
 PYTHON_REQUIRES = ">= 3.7.6"
+DEPENDENCY_LINKS = [
+	'git@github.com:Nance-lab/diff_classifier.git#egg=diff_classifier'
+]
 
 src_dir = dirname(abspath(__file__))
 requires_path = abspath(pjoin(src_dir, "requirements.txt"))
