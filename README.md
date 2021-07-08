@@ -19,11 +19,10 @@ The project has the following structure:
 ├── requirements.txt
 ├── setup.py
 ├── diff_predictor
-│   ├── data
-│   │   └── saved_models
 │   ├── __init__.py
 │   ├── aws_commands.py
 │   ├── core.py
+|   |-- data_process.py
 │   ├── dataio.py
 │   ├── eval.py
 │   ├── predxgboost.py
