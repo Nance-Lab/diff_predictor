@@ -349,9 +349,10 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
                        'predictor': 'gpu_predictor'})
     if 'metrics' not in kwargs:
         metrics = {params['eval_metric']}
+        
     else:
-        metrics = kwargs['metrics']
-        metrics.add(params['eval_metric'])
+       metrics = kwargs['metrics']
+       metrics.append(params['eval_metric']) #changed 'add' to 'append'
     if params['eval_metric'] in ['map', 'auc', 'aucpr']:
         eval_f = operator.gt
     else:

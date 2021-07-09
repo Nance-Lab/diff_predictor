@@ -33,7 +33,7 @@ param = {'max_depth': 3,
          'subsample': 0.15,
          'colsample_bytree': 0.8,
          'eval_metric': "mlogloss"}
-df_bins = bin_data(df, res=128) ##
+df_bins = bin_data(df, resolution=128) ##
 df_split, le = split_data(df_bins, 'target', 0.75) ##
 X_train, y_train, X_test, y_test = df_split
 nfold = 5
@@ -47,7 +47,7 @@ def test_bin_fold():
     
     
 def test_mknfold():
-    df_bins = bin_data(df, res=128)
+    df_bins = bin_data(df, resolution=128)
     ret, wt = mknfold(X_train, y_train, nfold, param, features=categories)
     assert sum(wt) == 1, "Weights of bins to not add up to 1.0"
     assert len(wt) == nfold, "Outputed the incorrect number of folds"
@@ -79,7 +79,7 @@ def test_xgb_paramsearch():
                                                                            nfold=nfold,
                                                                            num_boost_round=5,
                                                                            early_stopping_rounds=3,
-                                                                           metrics='accuracy',
+                                                                           metrics=['mlogloss'],
                                                                            seed=1234,
                                                                            early_break=2)
 #     assert len(xgb_ps) == 4, "calculated results not right length"
