@@ -42,7 +42,7 @@ def balance_data(df, target, **kwargs):
           f"{':'.join([str(len(i)) for i in bal_df])}")
     return pd.concat(bal_df)
 
-
+@deprecated("Old method using checkerboard, use other method")
 def checkerboard(size):
     """
     Parameters
