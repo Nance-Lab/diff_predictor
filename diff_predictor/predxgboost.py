@@ -1,6 +1,9 @@
 import sys
+import operator
+import json
 import numpy as np
 import pandas as pd
+<<<<<<< HEAD
 import xgboost as xgb
 import shap
 from matplotlib import colors as plt_colors
@@ -9,16 +12,30 @@ import operator
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from sklearn import preprocessing
+=======
+from os import path
+from sklearn.metrics import accuracy_score
+>>>>>>> main
 
+import xgboost as xgb
+from xgboost import callback, DMatrix, Booster
+from xgboost.core import CallbackEnv, EarlyStopException, STRING_TYPES
 from xgboost.training import CVPack
+<<<<<<< HEAD
 from xgboost import callback
 from xgboost.core import CallbackEnv
 from xgboost.core import EarlyStopException
 from xgboost.core import STRING_TYPES
 
 if 'core' not in sys.modules:
+=======
+from diff_predictor.core import is_numeric, search_nested_dict
+
+if 'diff_predictor.core' not in sys.modules:
+>>>>>>> main
     from diff_predictor import core
 
+    
 def bin_fold(X_train, nfold):
     '''
     Bins data into their respective folds.
@@ -28,7 +45,6 @@ def bin_fold(X_train, nfold):
         X data to be trained
     nfold : int
         number of folds desired in cv
-        
     Returns
     -------
     bin_list : list
@@ -53,7 +69,6 @@ def bin_fold(X_train, nfold):
 def mknfold(X_train, y_train, nfold, param, evals=(), features=None):
     '''
     Makes n folds in input data.
-
     Parameters
     ----------
     X_train : pandas.DataFrame
@@ -68,7 +83,6 @@ def mknfold(X_train, y_train, nfold, param, evals=(), features=None):
         Evaluation metrics to be watches in CV.
     features : list
         features selected to be trained
-        
     Returns
     -------
     ret : list
@@ -91,8 +105,8 @@ def mknfold(X_train, y_train, nfold, param, evals=(), features=None):
         y_train_snip = X_train.loc[in_idset[k]]['encoded_target']
         x_test_snip = X_train.loc[out_idset[k]][features]
         y_test_snip = X_train.loc[out_idset[k]]['encoded_target']
-        dtrain = xgb.DMatrix(x_train_snip, label=y_train_snip)
-        dtest = xgb.DMatrix(x_test_snip, label=y_test_snip)
+        dtrain = DMatrix(x_train_snip, label=y_train_snip)
+        dtest = DMatrix(x_test_snip, label=y_test_snip)
         tparam = param
         plst = list(tparam.items()) + [('eval_metric', itm) for itm in evals]
         ret.append(CVPack(dtrain, dtest, plst))
@@ -108,7 +122,6 @@ def cv(params, X_train, y_train, features=None, num_boost_round=20, nfold=3,
     Cross-validation with given parameters. Madified from cv method found in
     xgboost package (https://github.com/dmlc/xgboost) to use spatial data with
     statistical features without risking data bleed.
-
     Parameters
     ----------
     params : dict
@@ -167,20 +180,26 @@ def cv(params, X_train, y_train, features=None, num_boost_round=20, nfold=3,
         It is possible to use predefined callbacks using :ref:`Callback API
         <callback_api>`.
         Example:
-
             .. code-block:: python
-
             [xgb.callback.reset_learning_rate(custom_rates)]
-    
-    
     Returns
     -------
-    evaluation history : list(String)
+    results : pandas.DataFrame
+        results of crossvalidated model with metrics of each boosted round
     '''
+<<<<<<< HEAD
     if isinstance(metrics, str):
         metrics = [metrics]
     #if not features:
         #features = X_train.columns
+=======
+    metrics = list(metrics)
+    #if isinstance(metrics, str):
+    #    print('test')
+    #    metrics = [metrics]
+    if not features:
+        features = X_train.columns
+>>>>>>> main
     if isinstance(params, list):
         _metrics = [x[1] for x in params if x[0] == 'eval_metric']
         params = dict(params)
@@ -257,23 +276,21 @@ def cv(params, X_train, y_train, features=None, num_boost_round=20, nfold=3,
 
 
 def aggcv(rlist, wt_list):
-    # pylint: disable=invalid-name
     '''
     Aggregate cross-validation results. Madified from cv method found
     in xgboost package (https://github.com/dmlc/xgboost) to use spatial
     data with statistical features without risking data bleed.
-
-    If verbose_eval is true, progress is displayed in every
-    call. If verbose_eval is an integer, progress will only be
-    displayed every `verbose_eval` trees, tracked via trial.
-    
     Parameters
     ----------
-    rlist : 
-    wt_list : 
+    rlist : list
+        list of results from each cross-validation fold
+    wt_list : list
+        list of weights for each fold to apply to result
     Returns
     -------
-    results : 
+    results : list
+        list of weighted results based on the desired metric. Will output
+        a list of tuple containing the result, mean, and stdev.
     '''
     cvmap = {}
     idx = rlist[0].split()[0]
@@ -294,17 +311,17 @@ def aggcv(rlist, wt_list):
         if not isinstance(msg, STRING_TYPES):
             msg = msg.decode()
         mean = np.average(v, weights=wt_list)
-        std = np.average((v-mean)**2, weights=wt_list)
+        std = np.sqrt(np.average((v-mean)**2, weights=wt_list))
         results.extend([(k, mean, std)])
     return results
 
 
-def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5, 
-                    num_boost_round=2000, early_stopping_rounds=3, 
+def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
+                    num_boost_round=2000, early_stopping_rounds=3,
                     **kwargs):
     '''
-    Makes n folds in input data.
-
+    Extensive parameter search for xgboost model. Uses random search to tune
+    hyperparameters to a .
     Parameters
     ----------
     X_train : pandas.DataFrame
@@ -318,10 +335,11 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
         calculation for evaluation and will be compared to the next params
         in grid search
     nfold : int : 5
-        Number of folds
+        Number of folds for cross-validation
     num_boost_round : int : 2000
+        Maximum number of boosted decsion tree rounds to run through
     early_stopping_rounds : int : 3
-    
+        Number of rounds allowed to accept converge
     Optional Parameters
     -------------------
     use_gpu : boolean : False
@@ -329,7 +347,7 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
     metrics : list
         xgboost metrics to track
     early_break : int : 5
-        maximum number of times the random gridsearch while difference in 
+        maximum number of times the random gridsearch while difference in
         starting and ending evaluation value is within the given threshold
     thresh : float : 0.01
         allowed threshold between difference in starting and ending evaluation
@@ -341,78 +359,96 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
         these parameters
     Returns
     -------
-    best_model : 
-    best_param : 
-    best_eval : 
-    best_boost_rounds : 
+    best_model : dataframe
+        results of best crossvalidated model with metrics of each boosted round
+    best_param : dict
+        hyperparameters of best found model
+    best_eval : float
+        resulting evaluation metric of best boosted round metric
+    best_boost_rounds : int
+        number of boost rounds to converge
     '''
     params = {**init_params}
     if 'use_gpu' in kwargs and kwargs['use_gpu']:
         # GPU integration will cut cv time in ~half:
-        params.update({'gpu_id' : 0,
+        params.update({'gpu_id': 0,
                        'tree_method': 'gpu_hist',
                        'predictor': 'gpu_predictor'})
     if 'metrics' not in kwargs:
         metrics = {params['eval_metric']}
+        
     else:
-        metrics.add(params['eval_metric'])
+       metrics = kwargs['metrics']
+       metrics.append(params['eval_metric']) #changed 'add' to 'append'
     if params['eval_metric'] in ['map', 'auc', 'aucpr']:
         eval_f = operator.gt
-    else: 
+    else:
         eval_f = operator.lt
     if 'early_break' not in kwargs:
         early_break = 5
-    else: 
+    else:
         early_break = kwargs['early_break']
     if 'thresh' not in kwargs:
         thresh = 0.01
-    else: 
+    else:
         thresh = kwargs['thresh']
     if 'seed' not in kwargs:
         seed = 1111
-    else: 
+    else:
         seed = kwargs['seed']
     gs_params = {
-        'subsample': np.random.choice([i/10. for i in range(5,11)], 3),
-        'colsample': np.random.choice([i/10. for i in range(5,11)], 3),
+        'subsample': np.random.choice([i/10. for i in range(5, 11)], 3),
+        'colsample': np.random.choice([i/10. for i in range(5, 11)], 3),
         'eta': np.random.choice([.005, .01, .05, .1, .2, .3], 3),
-        'gamma': [0] + list(np.random.choice([0.01, 0.001, 0.2, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0], 3)),
+        'gamma': [0] + list(np.random.choice([0.01, 0.001, 0.2, 0.5, 1.0,
+                                              2.0, 3.0, 5.0, 10.0], 3)),
         'max_depth': [10] + list(np.random.randint(1, 10, 3)),
         'min_child_weight': [0, 10] + list(np.random.randint(0, 10, 3))
         }
     if 'gs_params' in kwargs:
         gs_params.update(kwargs['gs_params'])
     best_param = params
-    best_model = cv(params, 
-                    X_train, 
-                    y_train, 
-                    features, 
-                    nfold=nfold, 
-                    num_boost_round=num_boost_round, 
-                    early_stopping_rounds=early_stopping_rounds, 
+    best_model = cv(params,
+                    X_train,
+                    y_train,
+                    features,
+                    nfold=nfold,
+                    num_boost_round=num_boost_round,
+                    early_stopping_rounds=early_stopping_rounds,
                     metrics=metrics)
     best_eval = best_model[f"test-{params['eval_metric']}-mean"].min()
+<<<<<<< HEAD
     best_boost_rounds = best_model[f"test-{params['eval_metric']}-mean"].idxmin()
+=======
+    best_boost_rounds = \
+        best_model[f"test-{params['eval_metric']}-mean"].idxmin()
+
+>>>>>>> main
     def _gs_helper(var1n, var2n, best_model, best_param,
                    best_eval, best_boost_rounds):
         '''
-        Helper function for xgb_paramsearch. 
+        Helper function for xgb_paramsearch.
         '''
         local_param = {**best_param}
         for var1, var2 in gs_param:
             print(f"Using CV with {var1n}={{{var1}}}, {var2n}={{{var2}}}")
             local_param[var1n] = var1
             local_param[var2n] = var2
-            cv_model = cv(local_param, 
-                          X_train, 
-                          y_train, 
-                          features, 
-                          nfold=nfold, 
-                          num_boost_round= num_boost_round, 
-                          early_stopping_rounds=early_stopping_rounds, 
+            cv_model = cv(local_param,
+                          X_train,
+                          y_train,
+                          features,
+                          nfold=nfold,
+                          num_boost_round=num_boost_round,
+                          early_stopping_rounds=early_stopping_rounds,
                           metrics=metrics)
             cv_eval = cv_model[f"test-{local_param['eval_metric']}-mean"].min()
+<<<<<<< HEAD
             boost_rounds = cv_model[f"test-{local_param['eval_metric']}-mean"].idxmin()
+=======
+            boost_rounds = \
+                cv_model[f"test-{local_param['eval_metric']}-mean"].idxmin()
+>>>>>>> main
             if(eval_f(cv_eval, best_eval)):
                 best_model = cv_model
                 best_param[var1n] = var1
@@ -423,7 +459,7 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
                       f"{local_param['eval_metric']} = {{{best_eval}}}, "
                       f"boost_rounds = {{{best_boost_rounds}}}")
         return best_model, best_param, best_eval, best_boost_rounds
-    while(early_break >= 0):
+    while(early_break > 0):
         np.random.seed(seed)
         best_eval_init = best_eval
         gs_param = {
@@ -431,46 +467,40 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
             for subsample in gs_params['subsample']
             for colsample in gs_params['colsample']
         }
-        best_model,
-        best_param,
-        best_eval,
-        best_boost_rounds = _gs_helper('subsample', 
-                                       'colsample_bytree', 
-                                       best_model, 
-                                       best_param, 
-                                       best_eval, 
-                                       best_boost_rounds)
+        best_model, best_param, best_eval, best_boost_rounds = \
+            _gs_helper('subsample',
+                       'colsample_bytree',
+                       best_model,
+                       best_param,
+                       best_eval,
+                       best_boost_rounds)
         gs_param = {
             (max_depth, min_child_weight)
             for max_depth in gs_params['max_depth']
             for min_child_weight in gs_params['min_child_weight']
         }
-        best_model,
-        best_param,
-        best_eval,
-        best_boost_rounds = _gs_helper('max_depth', 
-                                       'min_child_weight', 
-                                       best_model, 
-                                       best_param, 
-                                       best_eval, 
-                                       best_boost_rounds)
+        best_model, best_param, best_eval, best_boost_rounds = \
+            _gs_helper('max_depth',
+                       'min_child_weight',
+                       best_model,
+                       best_param,
+                       best_eval,
+                       best_boost_rounds)
         gs_param = {
             (eta, gamma)
             for eta in gs_params['eta']
             for gamma in gs_params['gamma']
         }
-        best_model,
-        best_param,
-        best_eval,
-        best_boost_rounds = _gs_helper('eta', 
-                                       'gamma', 
-                                       best_model, 
-                                       best_param, 
-                                       best_eval, 
-                                       best_boost_rounds)
+        best_model, best_param, best_eval, best_boost_rounds = \
+            _gs_helper('eta',
+                       'gamma',
+                       best_model,
+                       best_param,
+                       best_eval,
+                       best_boost_rounds)
         if (abs(best_eval_init - best_eval) < thresh):
-            early_break-=1
-        seed+=1
+            early_break -= 1
+        seed += 1
     return best_model, best_param, best_eval, best_boost_rounds
 
 
@@ -482,36 +512,41 @@ def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000):
         dictionary of parameters used for training.
         max_depth : maximum allowed depth of a tree,
         eta : step size shrinkage used toprevent overfiiting,
-        min_child_weight : minimum sum of instance weight (hessian) needed in a child,
+        min_child_weight : minimum sum of instance weight (hessian)
+                           needed in a child,
         verbosity : verbosity of prited messages,
         objective : learning objective,
         num_class : number of classes in prediction,
         gamma : minimum loss reduction required to make a further
             partition on a leaf node of the tree,
         subsample : subsample ratio of the training instances,
-        colsample_bytree : subsample ratio of columns when constructing each tree,
+        colsample_bytree : subsample ratio of columns when
+                           constructing each tree,
         eval_metric : eval metric used for validatiion data
         (https://xgboost.readthedocs.io/en/latest/parameter.html)
-    dtrain : xgb.DMatrix
+    dtrain : xgboost.DMatrix
         training data for fittting.
-    dtest : xgb.DMatrix
+    dtest : xgboost.DMatrix
         testing data for fitting.
-    dval : xgb.DMatrix : None
+    dval : xgboost.DMatrix : None
         optional evaluation data for fitting.
-    evals : list : [(dtrain, `train`)]
+    evals : list : None
         evaluation configuration. Will report results in this form. If dval is
         used, will automatically update to [(dtrain, `train`), (dval, `eval`)].
-        Will use the last evaulation value in the list to test for loss convergence
+        Will use the last evaulation value in the list to test for loss
+        convergence
     num_rounds : int : 2000
         Number of boosting rounds to go through when training. A higher number
         makes a more complex ensemble model
     Returns
     -------
-    model : xgb.Classifier
+    model : xgboost.Classifier
         Resulting trained model.
     acc : float
         accuracy of trained model
     '''
+    if evals is None:
+        evals = [(dtrain, 'train')]
     if dval is not None and (dval, 'eval') not in evals:
         evals += [(dval, 'eval')]
     model = xgb.train(param, dtrain, num_round, evals, )
@@ -519,46 +554,61 @@ def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000):
     ypred = model.predict(dtest)
     preds = [np.where(x == np.max(x))[0][0] for x in ypred]
     acc = accuracy_score(true_label, preds)
+<<<<<<< HEAD
     print("Accuracy:",acc)
     return model, acc, true_label, preds
+=======
+    print("Accuracy:", acc)
+    return model, acc
+>>>>>>> main
 
 
 def save(model, filename):
     '''
     Parameters
     ----------
-    
+    model : xgboost.Booster()
+        xgboost model to be saved
+    filename : string
+        path/name of model to be saved
     Returns
     -------
     None
     '''
     model_file = filename.split('/')
     model_file[-1] = 'model_' + model_file[-1]
-    model_file = '/'.join(model_file)
+    model_file = path.join(*model_file)
     config_file = model_file.replace('model_', 'config_')
     model.save_model(model_file)
     with open(config_file, 'w', encoding='utf-8') as f:
         json.dump(model.save_config(), f, ensure_ascii=False, indent=4)
     f.close()
-    
+
 
 def load(filename):
     '''
+    Loads in an xgboost model from the given file location
     Parameters
     ----------
     filename : string
-        name of file
+        path of model file to be loaded
     Returns
     -------
-    booster : xgb.Booster()
-    
+    booster : xgboost.Booster()
+        model that is loaded
     metadata : dict
-    
+        parameter metadata for model in the form of json data.
+        Use get_params() function to use in model prediction.
     '''
-    booster = xgb.Booster({'nthread':4})
-    model_file = filename.split('/')
-    model_file[-1] = 'model_' + model_file[-1]
-    model_file = '/'.join(model_file)
+    booster = Booster({'nthread': 4})
+    # Check if model file exists as it has been writen by user.
+    # If not, add model_ to filename like it designated in save()
+    if not path.exists(filename):
+        model_file = filename.split('/')
+        model_file[-1] = 'model_' + model_file[-1]
+        model_file = '/'.join(model_file)
+    else:
+        model_file = filename
     config_file = model_file.replace('model_', 'config_')
     booster.load_model(model_file)
     with open(config_file, 'r', encoding='utf-8') as f:
@@ -579,14 +629,16 @@ def get_dmatrix(df_tuple, columns):
     df_tuple : list of tuples
         List of tuples taken from funciton spatial.split_data() in the form of
         [(X_train, y_train),(X_test, y_test),..]
+    columns : list
+        columns for pandas datafram -> Dmatrix
     Returns
     -------
     result : list
         List of Dmatrix. Length will be len(df_tuple)/2
     '''
     result = []
-    for (x_data, y_data) in zip(df_tuple[::2], df_tuple[1::2]):
-        result = np.append(result, [xgb.DMatrix(x_data[columns], label=y_data)])
+    for (x_data, y_data) in df_tuple:
+        result = np.append(result, [DMatrix(x_data[columns], label=y_data)])
     return result
 
 
@@ -597,7 +649,15 @@ def get_params(params, metadata):
     Parameters
     ----------
     params : dict
-        
+        dictionary containing parameters to get from loaded model metadata.
+        All values that you want searched dictionary should be None
+    metadata : string
+        string from parameter json file taken from loading model
+    Returns
+    -------
+    params : dict
+        filled in disctionary of parameters. vaules for keys that are not found
+        in the metadata will remain None.
     '''
     for key in params.keys():
         if params[key] is None:
@@ -606,7 +666,7 @@ def get_params(params, metadata):
                 value = float(value)
                 if value % 1 == 0:
                     params[key] = int(value)
-                else: 
+                else:
                     params[key] = float(value)
             else:
                 params[key] = value

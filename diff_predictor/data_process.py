@@ -1,7 +1,8 @@
 import sys
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler, scale
+from sklearn.model_selection import train_test_split
+from sklearn import preprocessing
 
 def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'):
     """
@@ -68,11 +69,17 @@ def balance_data(df, target, **kwargs):
     bal_df = []
     for name in df[target].unique():
         df_target.append((name, df[df[target] == name]))
-    print(f"Ratio before data balance ({':'.join([str(i[0]) for i in df_target])}) = {':'.join([str(len(i[1])) for i in df_target])}")
+    print(f"Ratio before data balance " +
+          f"({':'.join([str(i[0]) for i in df_target])}) = " +
+          f"{':'.join([str(len(i[1])) for i in df_target])}")
     for i in range(len(df_target)):
         ratio = min([len(i[1]) for i in df_target])/len(df_target[i][1])
-        bal_df.append(df_target[i][1].sample(frac=ratio, random_state=random_state))
-    print(f"Ratio after balance ({':'.join([str(i[0]) for i in df_target])}) = {':'.join([str(len(i)) for i in bal_df])}")
+        bal_df.append(df_target[i][1].sample(frac=ratio,
+                                             random_state=random_state))
+    print(f"Ratio after balance " +
+          f"({':'.join([str(i[0]) for i in df_target])}) = " +
+          f"{':'.join([str(len(i)) for i in bal_df])}")
+    assert len(bal_df) > 0, 'DataFrame cant be empty'
     return pd.concat(bal_df)
 
 
@@ -105,6 +112,7 @@ def bin_data(bal_ecm, resolution=128):
     bal_ecm = bal_ecm[np.isfinite(bal_ecm['bins'])]
     bal_ecm['bins'] = bal_ecm['bins'].astype(int)
     return bal_ecm
+<<<<<<< HEAD
     
 
 def scale_features(df, columns):
@@ -130,3 +138,37 @@ def scale_features(df, columns):
     scaled_data = scale(scaled_data, axis=1)
     scaled_features = pd.DataFrame(scaled_data, columns = features_df.columns)
     return scaled_features
+=======
+
+def split_data(df, target, train_split, test_val_split=1.0, seed=1234):
+    """
+    Parameters
+    ----------
+    
+    Returns
+    -------
+    
+    """
+    np.random.seed(seed)
+    le = preprocessing.LabelEncoder()
+    df['encoded_target'] = le.fit_transform(df[target])
+    training_bins = np.random.choice(df.bins.unique(),
+                                     int(len(df.bins.unique())*train_split),
+                                     replace=False)
+    X_train = df[df.bins.isin(training_bins)]
+    X_test_val = df[~df.bins.isin(training_bins)]
+    result = []
+    if test_val_split == 1.0:
+        X_test = X_test_val
+    else:
+        X_val, X_test = train_test_split(X_test_val,
+                                         test_size=test_val_split,
+                                         random_state=seed)
+        y_val = X_val['encoded_target']
+        result = [(X_val, y_val)]
+    y_train = X_train['encoded_target']
+    y_test = X_test['encoded_target']
+    result = np.append([(X_train, y_train), (X_test, y_test)], result)
+    return result, le
+    
+>>>>>>> main

@@ -22,6 +22,7 @@ def balance_data(df, target, **kwargs):
     -------
     
     """
+
     if 'random_state' not in kwargs:
         random_state = 1
     else:
@@ -40,9 +41,10 @@ def balance_data(df, target, **kwargs):
     print(f"Ratio after balance " +
           f"({':'.join([str(i[0]) for i in df_target])}) = " +
           f"{':'.join([str(len(i)) for i in bal_df])}")
+    assert len(bal_df) > 0, 'DataFrame cant be empty'
     return pd.concat(bal_df)
 
-
+@deprecated("Old method using checkerboard, use other method")
 def checkerboard(size):
     """
     Parameters
