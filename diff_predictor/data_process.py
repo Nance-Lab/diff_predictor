@@ -112,33 +112,6 @@ def bin_data(bal_ecm, resolution=128):
     bal_ecm = bal_ecm[np.isfinite(bal_ecm['bins'])]
     bal_ecm['bins'] = bal_ecm['bins'].astype(int)
     return bal_ecm
-<<<<<<< HEAD
-    
-
-def scale_features(df, columns):
-    """
-    Scales the features in a dataframe using sklearn functions. Needed before using unsupervised learning algorithms
-
-    Parameters
-    ----------
-    df: pandas.DataFrame
-        dataframe to be scaled
-    columns: list
-        list of column names to be to be scaled. Only use numerical columns
-    
-    Returns
-    -------
-    scaled_features: pandas.DataFrame
-        dataframe of the selected features with scaled values
-    """
-    features_df = df[columns]
-    features_df = features_df[~features_df.isin([np.nan, np.inf, -np.inf]).any(1)] # removes rows with nan or inf points
-    ss = StandardScaler()
-    scaled_data = pd.DataFrame(ss.fit_transform(features_df.values), columns=features_df.columns)
-    scaled_data = scale(scaled_data, axis=1)
-    scaled_features = pd.DataFrame(scaled_data, columns = features_df.columns)
-    return scaled_features
-=======
 
 def split_data(df, target, train_split, test_val_split=1.0, seed=1234):
     """
@@ -170,5 +143,3 @@ def split_data(df, target, train_split, test_val_split=1.0, seed=1234):
     y_test = X_test['encoded_target']
     result = np.append([(X_train, y_train), (X_test, y_test)], result)
     return result, le
-    
->>>>>>> main

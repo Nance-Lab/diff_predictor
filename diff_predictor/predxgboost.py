@@ -3,7 +3,6 @@ import operator
 import json
 import numpy as np
 import pandas as pd
-<<<<<<< HEAD
 import xgboost as xgb
 import shap
 from matplotlib import colors as plt_colors
@@ -12,27 +11,14 @@ import operator
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from sklearn import preprocessing
-=======
-from os import path
-from sklearn.metrics import accuracy_score
->>>>>>> main
 
 import xgboost as xgb
 from xgboost import callback, DMatrix, Booster
 from xgboost.core import CallbackEnv, EarlyStopException, STRING_TYPES
 from xgboost.training import CVPack
-<<<<<<< HEAD
-from xgboost import callback
-from xgboost.core import CallbackEnv
-from xgboost.core import EarlyStopException
-from xgboost.core import STRING_TYPES
-
-if 'core' not in sys.modules:
-=======
 from diff_predictor.core import is_numeric, search_nested_dict
 
 if 'diff_predictor.core' not in sys.modules:
->>>>>>> main
     from diff_predictor import core
 
     
@@ -187,19 +173,12 @@ def cv(params, X_train, y_train, features=None, num_boost_round=20, nfold=3,
     results : pandas.DataFrame
         results of crossvalidated model with metrics of each boosted round
     '''
-<<<<<<< HEAD
-    if isinstance(metrics, str):
-        metrics = [metrics]
-    #if not features:
-        #features = X_train.columns
-=======
     metrics = list(metrics)
     #if isinstance(metrics, str):
     #    print('test')
     #    metrics = [metrics]
     if not features:
         features = X_train.columns
->>>>>>> main
     if isinstance(params, list):
         _metrics = [x[1] for x in params if x[0] == 'eval_metric']
         params = dict(params)
@@ -417,13 +396,9 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
                     early_stopping_rounds=early_stopping_rounds,
                     metrics=metrics)
     best_eval = best_model[f"test-{params['eval_metric']}-mean"].min()
-<<<<<<< HEAD
-    best_boost_rounds = best_model[f"test-{params['eval_metric']}-mean"].idxmin()
-=======
     best_boost_rounds = \
         best_model[f"test-{params['eval_metric']}-mean"].idxmin()
 
->>>>>>> main
     def _gs_helper(var1n, var2n, best_model, best_param,
                    best_eval, best_boost_rounds):
         '''
@@ -443,12 +418,8 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
                           early_stopping_rounds=early_stopping_rounds,
                           metrics=metrics)
             cv_eval = cv_model[f"test-{local_param['eval_metric']}-mean"].min()
-<<<<<<< HEAD
-            boost_rounds = cv_model[f"test-{local_param['eval_metric']}-mean"].idxmin()
-=======
             boost_rounds = \
                 cv_model[f"test-{local_param['eval_metric']}-mean"].idxmin()
->>>>>>> main
             if(eval_f(cv_eval, best_eval)):
                 best_model = cv_model
                 best_param[var1n] = var1
@@ -554,13 +525,8 @@ def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000):
     ypred = model.predict(dtest)
     preds = [np.where(x == np.max(x))[0][0] for x in ypred]
     acc = accuracy_score(true_label, preds)
-<<<<<<< HEAD
     print("Accuracy:",acc)
     return model, acc, true_label, preds
-=======
-    print("Accuracy:", acc)
-    return model, acc
->>>>>>> main
 
 
 def save(model, filename):
