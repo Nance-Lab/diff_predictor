@@ -475,7 +475,7 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
     return best_model, best_param, best_eval, best_boost_rounds
 
 
-def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000):
+def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000, verbose=True):
     '''
     Parameters
     ----------
@@ -520,7 +520,7 @@ def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000):
         evals = [(dtrain, 'train')]
     if dval is not None and (dval, 'eval') not in evals:
         evals += [(dval, 'eval')]
-    model = xgb.train(param, dtrain, num_round, evals, )
+    model = xgb.train(param, dtrain, num_round, evals, verbose_eval=verbose)
     true_label = dtest.get_label()
     ypred = model.predict(dtest)
     preds = [np.where(x == np.max(x))[0][0] for x in ypred]

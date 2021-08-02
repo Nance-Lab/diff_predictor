@@ -48,18 +48,22 @@ def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'
 
 def balance_data(df, target, **kwargs):
     """
-    Balances the dataset so there are equal number of rows for each class
-    Parameters:
+    Balance spatial data using undersampling. Assumes input will
+    be a dataframe and data will be used for categorical classification
+    Parameters
     ----------
-    df: pandas.DataFrame
-        dataframe to be balanced
-    target: string
-        name of dataframe column that represents that class the row is from
-
-    Returns:
-    --------
-    bal_df: pandas.DataFrame
-        dataframe with equal number of rows per unique class
+    df : pandas.DataFrame
+        pandas dataframe to be balanced
+    target : string
+        the name of the target/tag/y-value column to balance data around
+        
+    Optional Parameters
+    -------------------
+    random_state : int : 1
+        seed to base random sampling from
+    Returns
+    -------
+    A fully balanced pandas dataframe
     """
     if 'random_state' not in kwargs:
         random_state = 1
