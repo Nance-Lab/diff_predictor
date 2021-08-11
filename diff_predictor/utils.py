@@ -4,6 +4,8 @@
 
 import pandas as pd
 import numpy as np
+from sklearn.metrics import jaccard_score
+
 
 def process_multimodel_data(filelist, data_path):  
     mean_acc = []
@@ -19,10 +21,9 @@ def process_multimodel_data(filelist, data_path):
     stdev_traj_count = []
 
     mean_frames = []
-    # min_frames = []
-    # max_frames = []
-    # var_frames = []
-    # stdev_frames = []
+    mean_dist_tot = []
+    mean_dist_net = []
+    jacc_list = []
 
     for file in filelist:
         df = pd.read_csv(data_path + file)
@@ -40,6 +41,16 @@ def process_multimodel_data(filelist, data_path):
 
         raw_frames = extract_string_from_df(df, 'Frames')
         mean_frames.append(np.array(raw_frames).mean())
+
+        raw_dist_tot = process_dist_cols(df, 'dist_tot', nan_strat=None)
+        mean_dist_tot.append(np.array(raw_dist_tot).mean())
+        raw_dist_net = process_dist_cols(df, 'dist_net', nan_strat=None)
+        mean_dist_net.append(np.array(raw_dist_net).mean())
+
+        true_labels = process_labels(df, 'True Labels')
+        preds = process_labels(df, 'Preds')
+        jacc_score = jaccard_score(true_labels, preds, average=None)
+        jacc_list.append(jacc_score)
            
         result = {'mean_acc': mean_acc, 
               'min_acc': min_acc, 
@@ -52,6 +63,9 @@ def process_multimodel_data(filelist, data_path):
               'var_traj_count': var_traj_count,
               'stdev_traj_count': stdev_traj_count,
               'mean_frames': mean_frames,
+              'mean_dist_tot': mean_dist_tot,
+              'mean_dist_net': mean_dist_net,
+              'jacc_scores': jacc_score
             #   'min_frames': min_frames,
             #   'max_frames': max_frames,
             #   'var_frames': var_frames,
@@ -111,3 +125,20 @@ def process_labels(df, col_name):
                                         val = val[0]
                                         list_of_ints.append(int(val))
         return list_of_ints
+
+
+def process_dist_cols(df, col_name, nan_strat):
+    dist_tot_vals = []
+    for i in range(len(df)):
+        thing = df[col_name][i][1:(len(df[col_name][i])-1)]
+        thing = thing.splitlines()
+        thing = thing[0].split(', ')
+        dist_tot_sublist = []
+        for val in thing:
+            #print((val))
+            if val != 'nan':
+                dist_tot_sublist.append(float(val))
+            elif nan_strat == 'zeros':
+                    dist_tot_sublist.append(0.0)
+        dist_tot_vals.append(np.array(dist_tot_sublist).mean())
+    return dist_tot_vals
