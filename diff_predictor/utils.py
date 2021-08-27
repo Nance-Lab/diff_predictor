@@ -5,6 +5,9 @@
 import pandas as pd
 import numpy as np
 from sklearn.metrics import jaccard_score
+import matplotlib.pyplot as plt
+import scipy.stats as stats
+import numpy.ma as ma
 
 
 def process_multimodel_data(filelist, data_path):  
@@ -142,3 +145,106 @@ def process_dist_cols(df, col_name, nan_strat):
                     dist_tot_sublist.append(0.0)
         dist_tot_vals.append(np.array(dist_tot_sublist).mean())
     return dist_tot_vals
+
+
+def plot_individual_msds(df, x_range=100, y_range=20, umppx=0.16, fps=100.02, alpha=0.1, figsize=(10, 10), subset=True, size=1000, dpi=300):
+    fig = plt.figure(figsize=figsize)
+    #particles = int(max(df['Track_ID']))
+    #print(particles)
+    particles = (len(df['Track_ID'].unique())) - 1
+
+    if particles < size:
+        size = particles - 1
+    else:
+        pass
+
+    frames = int(max(df['Frame']))
+
+    y = df['Y'].values.reshape((particles+1, frames+1))*umppx*umppx
+    x = df['X'].values.reshape((particles+1, frames+1))/fps
+    #     for i in range(0, particles+1):
+    #         y[i, :] = merged.loc[merged.Track_ID == i, 'MSDs']*umppx*umppx
+    #         x = merged.loc[merged.Track_ID == i, 'Frame']/fps
+
+    particles = df['Track_ID'].unique().astype(int)
+    if subset:
+        particles = np.random.choice(particles, size=1000, replace=False)
+
+    y = np.zeros((particles.shape[0], frames+1))
+    for idx, val in enumerate(particles):
+        y[idx, :] = df.loc[df.Track_ID == val, 'MSDs']*umppx*umppx
+        x = df.loc[df.Track_ID == val, 'Frame']/fps
+        plt.plot(x, y[idx, :], 'k', alpha=alpha)
+
+    geo_mean = np.nanmean(ma.log(y), axis=0)
+    geo_SEM = stats.sem(ma.log(y), axis=0, nan_policy='omit')
+    plt.plot(x, np.exp(geo_mean), 'k', linewidth=4)
+    plt.plot(x, np.exp(geo_mean-geo_SEM), 'k--', linewidth=2)
+    plt.plot(x, np.exp(geo_mean+geo_SEM), 'k--', linewidth=2)
+    plt.xlim(0, x_range)
+    plt.ylim(0, y_range)
+    plt.xlabel('Tau (s)', fontsize=25)
+    plt.ylabel(r'Mean Squared Displacement ($\mu$m$^2$)', fontsize=25)
+
+def plot_msd_comparisons(dfs, title, x_range=100, y_range=20, umppx=0.16, fps=100.02, alpha=0.1, figsize=(10, 10), subset=True, size=1000, dpi=300):
+    fig = plt.figure(figsize=figsize)
+    for key in dfs:
+        df = dfs[key]
+        particles = (len(df['Track_ID'].unique())) - 1
+
+        if particles < size:
+            size = particles - 1
+        else:
+            pass
+
+        frames = int(max(df['Frame']))
+
+        y = df['Y'].values.reshape((particles+1, frames+1))*umppx*umppx
+        x = df['X'].values.reshape((particles+1, frames+1))/fps
+        
+
+        particles = df['Track_ID'].unique().astype(int)
+        if subset:
+            particles = np.random.choice(particles, size=1000, replace=False)
+
+        y = np.zeros((particles.shape[0], frames+1))
+        for idx, val in enumerate(particles):
+            y[idx, :] = df.loc[df.Track_ID == val, 'MSDs']*umppx*umppx
+            x = df.loc[df.Track_ID == val, 'Frame']/fps
+            #plt.plot(x, y[idx, :], 'k', alpha=alpha)
+
+        geo_mean = np.nanmean(ma.log(y), axis=0)
+        geo_SEM = stats.sem(ma.log(y), axis=0, nan_policy='omit')
+        plt.plot(x, np.exp(geo_mean), linewidth=4, label=key)
+        #plt.plot(x, np.exp(geo_mean-geo_SEM), 'k--', linewidth=2)
+        #plt.plot(x, np.exp(geo_mean+geo_SEM), 'k--', linewidth=2)
+        plt.xlim(0, x_range)
+        plt.ylim(0, y_range)
+        plt.xlabel('Tau (s)', fontsize=25)
+        plt.ylabel(r'Mean Squared Displacement ($\mu$m$^2$)', fontsize=25)
+        plt.title(title)
+        plt.legend()
+
+def plot_particles_in_frame(df, x_range=600, y_range=2000):
+    """
+    Plot number of particles per frame as a function of time.
+    Parameters
+    ----------
+    x_range: float64 or int
+        Desire x range of graph.
+    y_range: float64 or int
+        Desire y range of graph.
+    """
+    merged = df
+    frames = int(max(merged['Frame']))
+    framespace = np.linspace(0, frames, frames)
+    particles = np.zeros((framespace.shape[0]))
+    for i in range(0, frames):
+        particles[i] = merged.loc[merged.Frame == i, 'MSDs'].dropna().shape[0]
+
+    fig = plt.figure(figsize=(5, 5))
+    plt.plot(framespace, particles, linewidth=4)
+    plt.xlim(0, x_range)
+    plt.ylim(0, y_range)
+    plt.xlabel('Frames', fontsize=20)
+    plt.ylabel('Particles', fontsize=20)
