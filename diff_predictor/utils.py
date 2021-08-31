@@ -225,7 +225,7 @@ def plot_msd_comparisons(dfs, title, x_range=100, y_range=20, umppx=0.16, fps=10
         plt.title(title)
         plt.legend()
 
-def plot_particles_in_frame(df, x_range=600, y_range=2000):
+def plot_particles_in_frame(merged, x_range=600, y_range=2000):
     """
     Plot number of particles per frame as a function of time.
     Parameters
@@ -235,15 +235,21 @@ def plot_particles_in_frame(df, x_range=600, y_range=2000):
     y_range: float64 or int
         Desire y range of graph.
     """
-    merged = df
-    frames = int(max(merged['Frame']))
-    framespace = np.linspace(0, frames, frames)
+    # merged = df
+    # frames = int(max(merged['Frame']))
+    # framespace = np.linspace(0, frames, frames)
+    # particles = np.zeros((framespace.shape[0]))
+    # for i in range(0, frames):
+    #     particles[i] = merged.loc[merged.Frame == i, 'MSDs'].dropna().shape[0]
+
+    framespace = np.array(merged['Frame'])
     particles = np.zeros((framespace.shape[0]))
-    for i in range(0, frames):
-        particles[i] = merged.loc[merged.Frame == i, 'MSDs'].dropna().shape[0]
+    for i, frame in enumerate(framespace):
+        particles[i] = merged.loc[merged.Frame == frame, 'MSDs'].dropna().shape[0]
+
 
     fig = plt.figure(figsize=(5, 5))
-    plt.plot(framespace, particles, linewidth=4)
+    plt.plot(framespace, particles, linewidth=4, c='r')
     plt.xlim(0, x_range)
     plt.ylim(0, y_range)
     plt.xlabel('Frames', fontsize=20)
