@@ -34,7 +34,7 @@ def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'
                 if targets[i] in filename:
                     print('Adding file {} size: {}'.format(filename, fstats.shape))
                     fstats[target_col_name] = pd.Series(fstats.shape[0]*[targets[i]], index=fstats.index)
-
+                    fstats['Filename'] = pd.Series(fstats.shape[0]*[filename], index=fstats.index)
                     fstats['Video Number'] = pd.Series(fstats.shape[0]*[video_num], index=fstats.index)
                     if fstats_tot is None:
                         fstats_tot = fstats
