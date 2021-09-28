@@ -1,16 +1,16 @@
-coverage==4.5.2
+coverage
 coveralls
-pytest==4.1.0
+pytest
 numpy
 scipy
 pandas
 matplotlib 
 ipython
 jupyter
-scikit-learn == 0.23.1
+scikit-learn
 sklearn
 boto3
-shapely == 1.7.0
-shap == 0.35.0
+shapely
+shap 
 xgboost == 1.2.1
 hypothesis == 6.14.3
