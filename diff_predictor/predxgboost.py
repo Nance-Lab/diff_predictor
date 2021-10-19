@@ -3,8 +3,14 @@ import operator
 import json
 import numpy as np
 import pandas as pd
-from os import path
-from sklearn.metrics import accuracy_score
+import xgboost as xgb
+import shap
+from matplotlib import colors as plt_colors
+import operator
+
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn import preprocessing
 
 import xgboost as xgb
 from xgboost import callback, DMatrix, Booster
@@ -71,8 +77,8 @@ def mknfold(X_train, y_train, nfold, param, evals=(), features=None):
     wt_list : list
         list of weights for each fold. This is the size of each fold
     '''
-    if not features:
-        features = X_train.columns
+    #if not features:
+        #features = X_train.columns
     out_idset, wt_list = bin_fold(X_train, nfold)
     in_idset = [np.concatenate([out_idset[i]
                                 for i in range(nfold) if k != i])
@@ -469,7 +475,7 @@ def xgb_paramsearch(X_train, y_train, features, init_params, nfold=5,
     return best_model, best_param, best_eval, best_boost_rounds
 
 
-def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000):
+def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000, verbose=True):
     '''
     Parameters
     ----------
@@ -514,13 +520,13 @@ def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000):
         evals = [(dtrain, 'train')]
     if dval is not None and (dval, 'eval') not in evals:
         evals += [(dval, 'eval')]
-    model = xgb.train(param, dtrain, num_round, evals, )
+    model = xgb.train(param, dtrain, num_round, evals, verbose_eval=verbose)
     true_label = dtest.get_label()
     ypred = model.predict(dtest)
     preds = [np.where(x == np.max(x))[0][0] for x in ypred]
     acc = accuracy_score(true_label, preds)
-    print("Accuracy:", acc)
-    return model, acc
+    print("Accuracy:",acc)
+    return model, acc, true_label, preds
 
 
 def save(model, filename):

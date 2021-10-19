@@ -28,36 +28,42 @@ def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'
     video_num = 0
     for filename in filelist:
             fstats = pd.read_csv(dataset_path + filename, encoding = "ISO-8859-1", index_col='Unnamed: 0')
-            print('{} size: {}'.format(filename, fstats.shape))
+            #print('{} size: {}'.format(filename, fstats.shape))
             
             for i in range(0, len(targets)):
                 if targets[i] in filename:
+                    print('Adding file {} size: {}'.format(filename, fstats.shape))
                     fstats[target_col_name] = pd.Series(fstats.shape[0]*[targets[i]], index=fstats.index)
-                    break
+                    fstats['Filename'] = pd.Series(fstats.shape[0]*[filename], index=fstats.index)
+                    fstats['Video Number'] = pd.Series(fstats.shape[0]*[video_num], index=fstats.index)
+                    if fstats_tot is None:
+                        fstats_tot = fstats
+                    else:
+                        fstats_tot = fstats_tot.append(fstats, ignore_index=True)
+                    video_num += 1
+                    #break
 
-            fstats['Video Number'] = pd.Series(fstats.shape[0]*[video_num], index=fstats.index)
-            if fstats_tot is None:
-                fstats_tot = fstats
-            else:
-                fstats_tot = fstats_tot.append(fstats, ignore_index=True)
-            video_num += 1
             
     return fstats_tot
 
 def balance_data(df, target, **kwargs):
     """
-    Balances the dataset so there are equal number of rows for each class
-    Parameters:
+    Balance spatial data using undersampling. Assumes input will
+    be a dataframe and data will be used for categorical classification
+    Parameters
     ----------
-    df: pandas.DataFrame
-        dataframe to be balanced
-    target: string
-        name of dataframe column that represents that class the row is from
-
-    Returns:
-    --------
-    bal_df: pandas.DataFrame
-        dataframe with equal number of rows per unique class
+    df : pandas.DataFrame
+        pandas dataframe to be balanced
+    target : string
+        the name of the target/tag/y-value column to balance data around
+        
+    Optional Parameters
+    -------------------
+    random_state : int : 1
+        seed to base random sampling from
+    Returns
+    -------
+    A fully balanced pandas dataframe
     """
     if 'random_state' not in kwargs:
         random_state = 1
@@ -141,4 +147,3 @@ def split_data(df, target, train_split, test_val_split=1.0, seed=1234):
     y_test = X_test['encoded_target']
     result = np.append([(X_train, y_train), (X_test, y_test)], result)
     return result, le
-    
