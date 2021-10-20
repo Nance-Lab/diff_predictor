@@ -19,19 +19,18 @@ The project has the following structure:
 ├── requirements.txt
 ├── setup.py
 ├── diff_predictor
+│ 	├── tests
+│ 	│   ├── test_data_process.py
+│ 	│   ├── test_dataio.py
+│ 	│ 	├── test_eval.py
+│	│	└── test_predxgboost.py
 │   ├── __init__.py
-│   ├── aws_commands.py
-│   ├── core.py
 │   ├── data_process.py
 │   ├── dataio.py
 │   ├── eval.py
 │   ├── predxgboost.py
-│   ├── spatial.py
 │   ├── temporal.py
 │   └── version.py
-├── tests
-│   ├── test_dataio.py
-│   └── test_predxgboost.py
 └── notebooks
 
 ```
