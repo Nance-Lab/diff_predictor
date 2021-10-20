@@ -10,6 +10,7 @@ before_script:
 script:
   - py.test test_predxgboost.py --doctest-modules --pep8 coveralls -v --cov coveralls --cov-report term-missing
   - py.test test_dataio.py --doctest-modules --pep8 coveralls -v --cov coveralls --cov-report term-missing
-  - py.test test_rnn.py --doctest-modules --pep8 coveralls -v --cov coveralls --cov-report term-missing
+  - py.test test_eval.py --doctest-modules --pep8 coveralls -v --cov coveralls --cov-report term-missing
+  - py.test test_data_process.py --doctest-modules -pep8 coveralls -v --cov coverall --cov-report term-missing
 after_success:
   - coveralls
