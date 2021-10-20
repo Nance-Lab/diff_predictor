@@ -3,9 +3,7 @@
 *.egg-info/
 
 # We want to avoid adding data to Github if possible
-*.csv
 *.png
 
 .vscode/
-diff_classifier
 diff_classifier
