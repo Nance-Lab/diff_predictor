@@ -14,26 +14,26 @@ This package contains tools for prediction and analysis of multiple particle tra
 The project has the following structure:
 
 ```
-	|- diff_predictor/
-		|- LICENSE
-		|- README.md
-		|- requirements.txt
-		|- setup.py
-		|- diff_predictor/
-			|- tests/
-				|- test_data_process.py
-				|- test_dataio.py
-				|- test_eval.py
-				|- test_predxgboost.py
-			|- __init__.py
-			|- data_process.py
-			|- dataio.py
-			|- eval.py
-			|- predxgboost.py
-			|- temporal.py
-			| version.py
-			|- notebooks/
-				|- ...
+|- diff_predictor/
+   |- LICENSE
+   |- README.md
+   |- requirements.txt
+   |- setup.py
+   |- diff_predictor/
+	  |- tests/
+		 |- test_data_process.py
+		 |- test_dataio.py
+		 |- test_eval.py
+		 |- test_predxgboost.py
+	  |- __init__.py
+	  |- data_process.py
+	  |- dataio.py
+	  |- eval.py
+	  |- predxgboost.py
+	  |- temporal.py
+	  |- version.py
+	  |- notebooks/
+		 |- ...
 
 ```
 ### Installation
