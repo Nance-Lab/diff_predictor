@@ -1,7 +1,6 @@
 from __future__ import absolute_import, division, print_function
 from os.path import join as pjoin
 from os.path import abspath, dirname
-
 # Format expected by setup.py and doc/source/conf.py: string of form "X.Y.Z"
 _version_major = 1
 _version_minor = 0
@@ -51,6 +50,7 @@ MAINTAINER = "Nels Schimek"
 MAINTAINER_EMAIL = "nlsschim@uw.edu"
 DESCRIPTION = DESCRIPTION
 LONG_DESCRIPTION = LONG_DESCRIPTION
+LONG_DESCRIPTION_CONTENT_TYPE = 'text/markdown'
 URL = "https://github.com/Nance-Lab/diff_predictor"
 DOWNLOAD_URL = ""
 LICENSE = "MIT"
