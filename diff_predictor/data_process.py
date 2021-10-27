@@ -40,10 +40,7 @@ def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'
                         fstats_tot = fstats
                     else:
                         fstats_tot = fstats_tot.append(fstats, ignore_index=True)
-                    video_num += 1
-                    #break
-
-            
+                    video_num += 1   
     return fstats_tot
 
 def balance_data(df, target, **kwargs):
