@@ -4,7 +4,7 @@ import xgboost as xgb
 from os import listdir, getcwd, chdir
 from os.path import isfile, join
 from diff_predictor.data_process import split_data, balance_data, generate_fullstats, bin_data
-from hypothesis import given, strategies as st
+from hypothesis import given, strategies as st, reproduce_failure
 from hypothesis.extra.pandas import columns, column, data_frames, range_indexes
 
 
