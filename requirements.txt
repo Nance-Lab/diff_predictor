@@ -15,4 +15,4 @@ boto3
 shapely
 shap 
 xgboost >= 1.2.1
-hypothesis
+hypothesis == 6.14.3
