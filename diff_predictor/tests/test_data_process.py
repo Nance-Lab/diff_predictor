@@ -4,7 +4,7 @@ import xgboost as xgb
 from os import listdir, getcwd, chdir
 from os.path import isfile, join
 from diff_predictor.data_process import split_data, balance_data, generate_fullstats, bin_data
-from hypothesis import given, strategies as st, reproduce_failure
+from hypothesis import HealthCheck, given, settings, strategies as st
 from hypothesis.extra.pandas import columns, column, data_frames, range_indexes
 
 
@@ -27,9 +27,10 @@ data_cols = columns(names_or_number=categories, dtype=float, elements=st.floats(
 position_cols = columns(names_or_number=['X', 'Y'], dtype=float, elements=st.floats(min_value=0.0, max_value=2048.0))
 target_col = column(name='target', dtype=int, elements=st.integers(min_value=0, max_value=20)) #up to twenty unique targets
 
-df = data_frames(columns=data_cols + position_cols + [target_col], index=range_indexes(min_size=1))
+df = data_frames(columns=data_cols + position_cols + [target_col], index=range_indexes(min_size=10))
 
 @given(s=df)
+@settings(suppress_health_check=[HealthCheck.large_base_example, HealthCheck.too_slow])
 def test_balance_data(s):
     bal_df = balance_data(df=s, target='target')
     assert (len(bal_df['target'].unique()) == len(s['target'].unique())) # check there are the same number of unique targets
@@ -39,6 +40,7 @@ def test_balance_data(s):
         assert len(bal_df[bal_df['target'] == val] == bal_length)
 
 @given(s=df)
+@settings(suppress_health_check=[HealthCheck.large_base_example, HealthCheck.too_slow])
 def test_bin_data(s):
     static_df = s.copy() #needed because bin_data edits the dataframe, doesnt return a new one
     bin_df = bin_data(s)
@@ -48,6 +50,7 @@ def test_bin_data(s):
     #assert len(bin_df['bins'].unique()) > 1
 
 @given(s=df)
+@settings(suppress_health_check=[HealthCheck.large_base_example, HealthCheck.too_slow])
 def test_split_data(s):
     bin_df = bin_data(s)
     result, le = split_data(df=bin_df, target='target', train_split=0.5)
