@@ -1,4 +1,5 @@
 coverage
+diff_predictor
 coveralls
 pytest
 numpy
