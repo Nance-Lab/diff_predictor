@@ -1,3 +1,8 @@
+## diff_predictor
+[![Build Status](https://travis-ci.com/Nance-Lab/diff_predictor.svg?branch=master)](https://travis-ci.com/Nance-Lab/diff_predictor)
+
+
+
 <p>
 	<img src="https://avatars0.githubusercontent.com/u/64927580?s=200&v=4" width="10%" align="left">
 </p>
@@ -13,26 +18,27 @@ This package contains tools for prediction and analysis of multiple particle tra
 ### Organization of the project:
 The project has the following structure:
 
-```bash
-├── LICENSE
-├── README.md
-├── requirements.txt
-├── setup.py
-├── diff_predictor
-│   ├── __init__.py
-│   ├── aws_commands.py
-│   ├── core.py
-│   ├── data_process.py
-│   ├── dataio.py
-│   ├── eval.py
-│   ├── predxgboost.py
-│   ├── spatial.py
-│   ├── temporal.py
-│   └── version.py
-├── tests
-│   ├── test_dataio.py
-│   └── test_predxgboost.py
-└── notebooks
+```
+|- diff_predictor/
+   |- LICENSE
+   |- README.md
+   |- requirements.txt
+   |- setup.py
+   |- diff_predictor/
+	  |- tests/
+		 |- test_data_process.py
+		 |- test_dataio.py
+		 |- test_eval.py
+		 |- test_predxgboost.py
+	  |- __init__.py
+	  |- data_process.py
+	  |- dataio.py
+	  |- eval.py
+	  |- predxgboost.py
+	  |- temporal.py
+	  |- version.py
+	  |- notebooks/
+		 |- ...
 
 ```
 ### Installation
