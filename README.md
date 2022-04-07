@@ -1,5 +1,4 @@
 ## diff_predictor
-[![Build Status](https://travis-ci.com/Nance-Lab/diff_predictor.svg?branch=master)](https://travis-ci.com/Nance-Lab/diff_predictor)
 
 
 
