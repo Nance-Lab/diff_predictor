@@ -16,10 +16,6 @@ import xgboost as xgb
 from xgboost import callback, DMatrix, Booster
 from xgboost.core import CallbackEnv, EarlyStopException, STRING_TYPES
 from xgboost.training import CVPack
-from diff_predictor.core import is_numeric, search_nested_dict
-
-if 'diff_predictor.core' not in sys.modules:
-    from diff_predictor import core
 
     
 def bin_fold(X_train, nfold):
