@@ -173,8 +173,8 @@ def cv(params, X_train, y_train, features=None, num_boost_round=20, nfold=3,
     #if isinstance(metrics, str):
     #    print('test')
     #    metrics = [metrics]
-    if not features:
-        features = X_train.columns
+    #if not features:
+        #features = X_train.columns
     if isinstance(params, list):
         _metrics = [x[1] for x in params if x[0] == 'eval_metric']
         params = dict(params)
