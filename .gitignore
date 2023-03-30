@@ -1,9 +1,14 @@
 .DS_store
 *.ipynb_checkpoints
 *.egg-info/
+*.egg
+*.hypothesis*
 
 # We want to avoid adding data to Github if possible
 *.png
+*.npy
 
 .vscode/
 diff_classifier
+*.icloud
+*__pycache__
