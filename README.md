@@ -3,6 +3,7 @@
 
 [![MIT License](https://img.shields.io/apm/l/atomic-design-ui.svg?)](https://github.com/tterb/atomic-design-ui/blob/master/LICENSEs)
 [![Build Status](https://github.com/Nance-Lab/diff_predictor/actions/workflows/ci.yml/badge.svg)](https://github.com/Nance-Lab/diff_predictor/actions/workflows/ci.yml)
+[![Coverage Status](https://coveralls.io/repos/github/Nance-Lab/diff_predictor/badge.svg?branch=main)](https://coveralls.io/github/Nance-Lab/diff_predictor?branch=main)
 
 ![Logo](https://avatars0.githubusercontent.com/u/64927580?s=200&v=4)
 
