@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/nelsschimek/Documents/nancelab/diff_predictor/notebooks/mlruns/0/ebe282fbc5194da5b1a404317002b8f3/artifacts
+end_time: 1666128498610
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+name: ''
+run_id: ebe282fbc5194da5b1a404317002b8f3
+run_uuid: ebe282fbc5194da5b1a404317002b8f3
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1666128484912
+status: 3
+tags: []
+user_id: nelsschimek

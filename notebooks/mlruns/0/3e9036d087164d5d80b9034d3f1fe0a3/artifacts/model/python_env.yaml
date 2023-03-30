@@ -1,0 +1,7 @@
+python: 3.7.7
+build_dependencies:
+- pip==22.2.2
+- setuptools==52.0.0.post20210125
+- wheel==0.36.2
+dependencies:
+- -r requirements.txt
