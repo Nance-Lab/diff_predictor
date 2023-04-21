@@ -1,0 +1,16 @@
+language: python
+python:
+  - "3.7.6"
+install:
+  - pip install -e . --use-mirrors
+before_script:
+  - pip install -r requirements.txt --use-mirrors
+  - git clone https://github.com/Nance-Lab/diff_predictor.git
+  - cd ./diff_predictor/diff_predictor/tests/
+script:
+  - py.test test_predxgboost.py --doctest-modules --pep8 coveralls -v --cov coveralls --cov-report term-missing
+  - py.test test_dataio.py --doctest-modules --pep8 coveralls -v --cov coveralls --cov-report term-missing
+  - py.test test_eval.py --doctest-modules --pep8 coveralls -v --cov coveralls --cov-report term-missing
+  - py.test test_data_process.py --doctest-modules -pep8 coveralls -v --cov coverall --cov-report term-missing
+after_success:
+  - coveralls
