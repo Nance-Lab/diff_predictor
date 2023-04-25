@@ -10,7 +10,6 @@ seaborn
 ipython
 jupyter
 scikit-learn
-#sklearn
 boto3
 shapely
 shap 
