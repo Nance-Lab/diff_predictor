@@ -1,14 +1,16 @@
 coverage
+diff_predictor
 coveralls
 pytest
 numpy
 scipy
 pandas
 matplotlib 
+seaborn
 ipython
 jupyter
 scikit-learn
-sklearn
+#sklearn
 boto3
 shapely
 shap 

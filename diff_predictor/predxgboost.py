@@ -16,10 +16,6 @@ import xgboost as xgb
 from xgboost import callback, DMatrix, Booster
 from xgboost.core import CallbackEnv, EarlyStopException, STRING_TYPES
 from xgboost.training import CVPack
-from diff_predictor.core import is_numeric, search_nested_dict
-
-if 'diff_predictor.core' not in sys.modules:
-    from diff_predictor import core
 
     
 def bin_fold(X_train, nfold):
@@ -177,8 +173,8 @@ def cv(params, X_train, y_train, features=None, num_boost_round=20, nfold=3,
     #if isinstance(metrics, str):
     #    print('test')
     #    metrics = [metrics]
-    if not features:
-        features = X_train.columns
+    #if not features:
+        #features = X_train.columns
     if isinstance(params, list):
         _metrics = [x[1] for x in params if x[0] == 'eval_metric']
         params = dict(params)

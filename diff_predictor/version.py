@@ -1,7 +1,6 @@
 from __future__ import absolute_import, division, print_function
 from os.path import join as pjoin
 from os.path import abspath, dirname
-
 # Format expected by setup.py and doc/source/conf.py: string of form "X.Y.Z"
 _version_major = 1
 _version_minor = 0
@@ -34,12 +33,11 @@ diff_predictor
 ========
 Diff_predictor is a prediction package for multiple particle tracking data and
 is intended for use alongside diff_classifier (https://github.com/Nance-Lab/diff_classifier).
-It contains methods intendd to transform and redict MPT data, as well as methods for
-analyzing prediction results including feature importancce using xgboost.
+It contains methods intended to transform and predict on MPT data, as well as methods for
+analyzing prediction results including feature importance.
 To get started using these components in your own software, please go to the
 repository README_.
-.. _README: https://github.com/uwescience/shablona/blob/master/README.md
-License
+.. _README: https://github.com/Nance-Lab/diff_predictor/blob/main/README.md
 =======
 ``diff_predictor`` is licensed under the terms of the MIT license. See the file
 "LICENSE" for information on the history of this software, terms & conditions
@@ -52,6 +50,7 @@ MAINTAINER = "Nels Schimek"
 MAINTAINER_EMAIL = "nlsschim@uw.edu"
 DESCRIPTION = DESCRIPTION
 LONG_DESCRIPTION = LONG_DESCRIPTION
+LONG_DESCRIPTION_CONTENT_TYPE = 'text/markdown'
 URL = "https://github.com/Nance-Lab/diff_predictor"
 DOWNLOAD_URL = ""
 LICENSE = "MIT"
