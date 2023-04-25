@@ -10,7 +10,7 @@ seaborn == 0.12.2
 ipython == 7.34.0
 ipykernel >= 6.0.0
 jupyter == 1.0.0
-scikit-learn == 1.2.2
+scikit-learn == 1.0.2
 boto3 == 1.26.118
 shapely == 2.0.1
 shap == 0.41.0
