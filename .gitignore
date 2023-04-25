@@ -4,6 +4,6 @@
 
 # We want to avoid adding data to Github if possible
 *.png
-
+*.icloud
 .vscode/
 diff_classifier
