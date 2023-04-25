@@ -4,13 +4,12 @@ coveralls
 pytest
 numpy
 scipy
-pandas
+pandas == 2.0.1
 matplotlib 
 seaborn
 ipython
 jupyter
 scikit-learn
-#sklearn
 boto3
 shapely
 shap 
