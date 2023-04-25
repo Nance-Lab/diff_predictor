@@ -6,8 +6,12 @@
 
 # We want to avoid adding data to Github if possible
 *.png
+<<<<<<< HEAD
 *.npy
 
+=======
+*.icloud
+>>>>>>> main
 .vscode/
 diff_classifier
 *.icloud
