@@ -93,7 +93,7 @@ workspace = run.experiment.workspace
 
 
 
-dataset = Dataset.get_by_name(workspace, name='age_data_trajectories')
+dataset = Dataset.get_by_name(workspace, name='age_mpt_feature_data')
 dataset.download(target_path='.', overwrite=True)
 
 dataset_path = os.getcwd()
