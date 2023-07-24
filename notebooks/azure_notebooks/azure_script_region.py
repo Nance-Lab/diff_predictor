@@ -628,7 +628,7 @@ run = Run.get_context()
 #for the cloud job script
 workspace = run.experiment.workspace
 
-dataset = Dataset.get_by_name(workspace, name='age_mpt_feature_data')
+dataset = Dataset.get_by_name(workspace, name='region_mpt_feature_data_ML')
 dataset.download(target_path='.', overwrite=False)
 
 datasetpath = getcwd()
@@ -656,7 +656,7 @@ print(filelist[0:5])
 #         print(filelist[rand_int])
 
 print('running generate_fullstats function on subset filelist')
-fstats_tot = generate_fullstats(datasetpath, filelist, ['P14', 'P35', 'P70'], 'age')
+fstats_tot = generate_fullstats(datasetpath, filelist, ['striatum', 'hippocampus', 'cortex'], 'region')
 print(fstats_tot.head())
 
 
@@ -702,14 +702,14 @@ feature_list = [
     'Mean Deff2',
     ]
 
-target = 'age'
+target = 'region'
 
 ecm = fstats_tot[feature_list + [target, 'Track_ID', 'X', 'Y']]
 ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)]       # Removing nan and inf data points
 bal_ecm = balance_data(ecm, target)
 sampled_df = bin_data(bal_ecm)
-label_df = sampled_df['age']
-features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID'], axis=1)
+label_df = sampled_df[target]
+features_df = sampled_df.drop([target, 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID'], axis=1)
 features = features_df.columns
 
 seed = 1234
@@ -776,13 +776,13 @@ for i in range(50):
 #         rand_integers = random.sample(set(np.arange(class_lens[i], class_lens[i+1])), 15)
 #         for rand_int in rand_integers:
 #             sampled_filelist.append(filelist[rand_int])
-    fstats_tot = generate_fullstats(datasetpath, filelist, ['P14', 'P35', 'P70'], 'age')
+    fstats_tot = generate_fullstats(datasetpath, filelist, ['P14', 'P35', 'P70'], target)
     ecm = fstats_tot[feature_list + [target, 'Track_ID', 'X', 'Y', 'frames', 'dist_tot', 'dist_net']]
     ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)] 
     bal_ecm = balance_data(ecm, target)
     sampled_df = bin_data(bal_ecm)
-    label_df = sampled_df['age']
-    features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID', 'frames', 'dist_tot', 'dist_net'], axis=1)
+    label_df = sampled_df[target]
+    features_df = sampled_df.drop([target, 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID', 'frames', 'dist_tot', 'dist_net'], axis=1)
     features = features_df.columns
     traj_count_list.append(len(bal_ecm))
 

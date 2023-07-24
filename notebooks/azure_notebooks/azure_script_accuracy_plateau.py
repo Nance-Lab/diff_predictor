@@ -1,7 +1,13 @@
+import os
 from azureml.core import Workspace, Dataset, Run
 from azureml.core.conda_dependencies import CondaDependencies
 from azureml.core import Workspace, Experiment, Environment, ScriptRunConfig, Run
 from azureml.core.conda_dependencies import CondaDependencies
+from azureml.core.datastore import Datastore
+from azureml.core.dataset import Dataset
+
+
+import random
 
 import pandas as pd
 import numpy as np
@@ -562,7 +568,6 @@ def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'
 
             
     return fstats_tot
-    return fstats_tot
 
 def balance_data(df, target, **kwargs):
     """
@@ -622,14 +627,39 @@ def bin_data(bal_ecm, resolution=128):
     bal_ecm['bins'] = bal_ecm['bins'].astype(int)
     return bal_ecm
 
+def subsample_dataframe(df, num_classes, class_column, fraction):
+    # Calculate the number of data points in the class with the lowest number of data points
+    class_counts = df[class_column].value_counts()
+    min_class_count = class_counts.min()
+    print(f'minimum class count: {min_class_count}')
+
+    # Calculate the desired number of data points for each class based on the fraction
+    desired_class_count = int(min_class_count * fraction)
+
+    # Subsample the DataFrame for each class
+    sampled_dfs = []
+    for class_label in range(num_classes):
+        class_df = df[df['class_column'] == class_label]
+        init_sampled_df = class_df.sample(n=desired_class_count, replace=True, random_state=None)
+        sampled_dfs.append(init_sampled_df)
+
+    # Combine the subsampled DataFrames back into one DataFrame
+    subsampled_df = pd.concat(sampled_dfs)
+
+    return subsampled_df
+
 # This might be redundant, fine for now
 run = Run.get_context()
 
 #for the cloud job script
 workspace = run.experiment.workspace
 
-dataset = Dataset.get_by_name(workspace, name='age_mpt_feature_data')
-dataset.download(target_path='.', overwrite=False)
+
+dataset = Dataset.get_by_name(workspace, name='P17_OGD_3div_STR_features')
+dataset.download(target_path='.', overwrite=True)
+# datastore = Datastore.get(workspace, 'workspaceblobstore')
+# cortex_3d_dataset = Dataset.File.from_files(path=(datastore, 'UI/2023-07-11_223238_UTC/'))
+# cortex_3d_dataset = cortex_3d_dataset.download(target_path='.', overwrite=True)
 
 datasetpath = getcwd()
 print('Current Notebook Dir: ' + datasetpath)
@@ -643,38 +673,38 @@ print('generating filelist')
 filelist = []
 for file in dataset.to_path():
     filelist.append(file)
+
 print('showing five path examples')
 print(filelist[0:5])
+print(f'length of filelist: {len(filelist)}')
 
-# print('generating filelist subset')
-# sampled_filelist = []
-# class_lens = [0, 15, 30, 45, 60, 75] # this is specific to the age data set!
-# for i in range(len(class_lens)-1):
-#     rand_integers = random.sample(set(np.arange(class_lens[i], class_lens[i+1])), 1)
-#     for rand_int in rand_integers:
-#         sampled_filelist.append(filelist[rand_int])
-#         print(filelist[rand_int])
 
+
+
+### DEFINE NUMBER OF CLASSES
+num_classes = 4
+### DEFINE TARGET COLUMN NAME
+target = 'treatment'
 print('running generate_fullstats function on subset filelist')
-fstats_tot = generate_fullstats(datasetpath, filelist, ['P14', 'P35', 'P70'], 'age')
+fstats_tot = generate_fullstats(datasetpath, filelist, ['1h', '2h', '3h', 'NT'], target)
 print(fstats_tot.head())
 
 
 feature_list = [
-    # 'alpha', # Fitted anomalous diffusion alpha exponenet
-    # 'D_fit', # Fitted anomalous diffusion coefficient
-    # 'kurtosis', # Kurtosis of track
-    # 'asymmetry1', # Asymmetry of trajecory (0 for circular symmetric, 1 for linear)
-    # 'asymmetry2', # Ratio of the smaller to larger principal radius of gyration
-    # 'asymmetry3', # An asymmetric feature that accnts for non-cylindrically symmetric pt distributions
-    # 'AR', # Aspect ratio of long and short side of trajectory's minimum bounding rectangle
-    # 'elongation', # Est. of amount of extension of trajectory from centroid
-    # 'boundedness', # How much a particle with Deff is restricted by a circular confinement of radius r
-    # 'fractal_dim', # Measure of how complicated a self similar figure is
-    # 'trappedness', # Probability that a particle with Deff is trapped in a region
-    # 'efficiency', # Ratio of squared net displacement to the sum of squared step lengths
-    # 'straightness', # Ratio of net displacement to the sum of squared step lengths
-    # 'MSD_ratio', # MSD ratio of the track
+    'alpha', # Fitted anomalous diffusion alpha exponenet
+    'D_fit', # Fitted anomalous diffusion coefficient
+    'kurtosis', # Kurtosis of track
+    'asymmetry1', # Asymmetry of trajecory (0 for circular symmetric, 1 for linear)
+    'asymmetry2', # Ratio of the smaller to larger principal radius of gyration
+    'asymmetry3', # An asymmetric feature that accnts for non-cylindrically symmetric pt distributions
+    'AR', # Aspect ratio of long and short side of trajectory's minimum bounding rectangle
+    'elongation', # Est. of amount of extension of trajectory from centroid
+    'boundedness', # How much a particle with Deff is restricted by a circular confinement of radius r
+    'fractal_dim', # Measure of how complicated a self similar figure is
+    'trappedness', # Probability that a particle with Deff is trapped in a region
+    'efficiency', # Ratio of squared net displacement to the sum of squared step lengths
+    'straightness', # Ratio of net displacement to the sum of squared step lengths
+    'MSD_ratio', # MSD ratio of the track
 #     'frames', # Number of frames the track spans
     'Deff1', # Effective diffusion coefficient at 0.33 s
     'Deff2', # Effective diffusion coefficient at 3.3 s
@@ -684,144 +714,104 @@ feature_list = [
     #'dist_tot', # Total distance of the trajectory
     #'dist_net', # Net distance from first point to last point
     #'progression', # Ratio of the net distance traveled and the total distance
-    # 'Mean alpha', 
-    # 'Mean D_fit', 
-    # 'Mean kurtosis', 
-    # 'Mean asymmetry1', 
-    # 'Mean asymmetry2',
-    # 'Mean asymmetry3', 
-    # 'Mean AR',
-    # 'Mean elongation', 
-    # 'Mean boundedness',
-    # 'Mean fractal_dim', 
-    # 'Mean trappedness', 
-    # 'Mean efficiency',
-    # 'Mean straightness', 
-    # 'Mean MSD_ratio', 
+    'Mean alpha', 
+    'Mean D_fit', 
+    'Mean kurtosis', 
+    'Mean asymmetry1', 
+    'Mean asymmetry2',
+    'Mean asymmetry3', 
+    'Mean AR',
+    'Mean elongation', 
+    'Mean boundedness',
+    'Mean fractal_dim', 
+    'Mean trappedness', 
+    'Mean efficiency',
+    'Mean straightness', 
+    'Mean MSD_ratio', 
     'Mean Deff1', 
     'Mean Deff2',
     ]
 
-target = 'age'
-
-ecm = fstats_tot[feature_list + [target, 'Track_ID', 'X', 'Y']]
-ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)]       # Removing nan and inf data points
-bal_ecm = balance_data(ecm, target)
-sampled_df = bin_data(bal_ecm)
-label_df = sampled_df['age']
-features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID'], axis=1)
-features = features_df.columns
-
-seed = 1234
-np.random.seed(seed)
-train_split = 0.8
-test_split = 0.5
-
-le = preprocessing.LabelEncoder()
-sampled_df['encoded_target'] = le.fit_transform(sampled_df[target])
-
-training_bins = np.random.choice(sampled_df['bins'].unique(), int(len(sampled_df['bins'].unique())*train_split), replace=False)
-
-X_train = sampled_df[sampled_df['bins'].isin(training_bins)]
-X_test_val = sampled_df[~sampled_df['bins'].isin(training_bins)]
-X_val, X_test = train_test_split(X_test_val, test_size=test_split, random_state=seed)
-
-y_train = X_train['encoded_target']
-y_test = X_test['encoded_target']
-y_val = X_val['encoded_target']
-
-dtrain = xgb.DMatrix(X_train[features], label=y_train)
-dtest = xgb.DMatrix(X_test[features], label=y_test)
-dval = xgb.DMatrix(X_val[features], label=y_val)
-
-param = {'max_depth': 3,
-         'eta': 0.005,
-         'min_child_weight': 0,
-         'verbosity': 0,
-         'objective': 'multi:softprob',
-         'num_class': 3,
-         'silent': 'True',
-         'gamma': 5,
-         'subsample': 0.15,
-         'colsample_bytree': 0.8,
-         'eval_metric': "mlogloss",
-         # GPU integration will cut time in ~half:
-         'gpu_id' : 0,
-         'tree_method': 'gpu_hist',
-         'predictor': 'gpu_predictor'
-         }
-
-# print('beginning hyperparameter search')
-(best_model, best_param, best_eval, best_boost_rounds) = xgb_paramsearch(X_train, y_train, features, init_params=param, nfold=5, num_boost_round=2000, early_stopping_rounds=3, use_gpu='True')
-
 #best_param = {'max_depth': 5, 'eta': 0.01, 'min_child_weight': 10, 'verbosity': 0, 'objective': 'multi:softprob', 'num_class': 3, 'silent': 'True', 'gamma': 0, 'subsample': 0.6, 'colsample_bytree': 0.5, 'eval_metric': 'mlogloss', 'gpu_id': 0, 'tree_method': 'gpu_hist', 'predictor': 'gpu_predictor'}
+best_param = {'max_depth': 3, 'eta': 0.005, 'min_child_weight': 0, 'verbosity': 0, 'objective': 'multi:softprob', 'num_class': 4, 'silent': 'True', 'gamma': 5, 'subsample': 0.15, 'colsample_bytree': 0.8, 'eval_metric': 'mlogloss', 'gpu_id': 0, 'tree_method': 'gpu_hist', 'predictor': 'gpu_predictor'}
+best_boost_rounds = 742
+
+main_acc_list = []
+main_true_label_list = []
+main_preds_list = []
+main_traj_count_list = []
+main_num_bins_list = []
+for fraction in range(1, 11, 1):
+    acc_list = []
+    true_label_list = []
+    preds_list = []
+    trajectory_count_list = []
+    num_bins_list = []
+    for i in range(25):
+    #     sampled_filelist = []
+    #     class_lens = [0, 15, 30, 45, 60, 75] # this is specific to the age data set!
+    #     for i in range(len(class_lens)-1):
+    #         rand_integers = random.sample(set(np.arange(class_lens[i], class_lens[i+1])), 15)
+    #         for rand_int in rand_integers:
+    #             sampled_filelist.append(filelist[rand_int])
+        fstats_tot = generate_fullstats(datasetpath, filelist, ['1h', '2h', '3h', 'NT'], target)
+        ecm = fstats_tot[feature_list + [target, 'Track_ID', 'X', 'Y', 'frames']]
+        ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)] 
+        bal_ecm = balance_data(ecm, target)
+
+        sub_sampled_df = subsample_dataframe(bal_ecm, num_classes, target, fraction=(fraction/10))
+
+        sampled_df = bin_data(sub_sampled_df)
+        label_df = sampled_df[target]
+        features_df = sampled_df.drop([target, 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID', 'frames'], axis=1)
+        features = features_df.columns
+
+        random.seed(1234)
+        seed = random.randint(a=1, b=2000)
+        print(seed)
+        
+        train_split = 0.8
+        test_split = 0.5
+
+        le = preprocessing.LabelEncoder()
+        sampled_df['encoded_target'] = le.fit_transform(sampled_df[target])
+
+        training_bins = np.random.choice(sampled_df['bins'].unique(), int(len(sampled_df['bins'].unique())*train_split), replace=False)
+
+        X_train = sampled_df[sampled_df['bins'].isin(training_bins)]
+        X_test_val = sampled_df[~sampled_df['bins'].isin(training_bins)]
+        X_val, X_test = train_test_split(X_test_val, test_size=test_split, random_state=seed)
+
+        y_train = X_train['encoded_target']
+        y_test = X_test['encoded_target']
+        y_val = X_val['encoded_target']
+
+        dtrain = xgb.DMatrix(X_train[features], label=y_train)
+        dtest = xgb.DMatrix(X_test[features], label=y_test)
+        dval = xgb.DMatrix(X_val[features], label=y_val)
+        booster, acc, true_label, preds = train(best_param, dtrain, dtest, dval, evals=[(dtrain, 'train'), (dval, 'eval')], num_round=743)
+        acc_list.append(acc)
+        true_label_list.append(true_label)
+        preds_list.append(preds)
+        trajectory_count_list.append(len(X_train))
+        num_bins = len(X_train['bins'].unique())
+    main_acc_list.append(acc_list)
+    main_true_label_list.append(true_label_list)
+    main_preds_list.append(preds_list)
+    main_num_bins_list.append(num_bins_list)
+    main_traj_count_list.append(trajectory_count_list)
 
 
-# print('successfully found best hyperparameters:')
-print(best_param)
-# print('successfully found best boost rounds:')
-# print(best_boost_rounds[3]) #last index of tuple is the boost rounds
 
-acc_list = []
-true_label_list = []
-preds_list = []
-traj_count_list = []
-frames_list = []
-dist_tot_list = []
-dist_net_list = []
-for i in range(50):
-#     sampled_filelist = []
-#     class_lens = [0, 15, 30, 45, 60, 75] # this is specific to the age data set!
-#     for i in range(len(class_lens)-1):
-#         rand_integers = random.sample(set(np.arange(class_lens[i], class_lens[i+1])), 15)
-#         for rand_int in rand_integers:
-#             sampled_filelist.append(filelist[rand_int])
-    fstats_tot = generate_fullstats(datasetpath, filelist, ['P14', 'P35', 'P70'], 'age')
-    ecm = fstats_tot[feature_list + [target, 'Track_ID', 'X', 'Y', 'frames', 'dist_tot', 'dist_net']]
-    ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)] 
-    bal_ecm = balance_data(ecm, target)
-    sampled_df = bin_data(bal_ecm)
-    label_df = sampled_df['age']
-    features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID', 'frames', 'dist_tot', 'dist_net'], axis=1)
-    features = features_df.columns
-    traj_count_list.append(len(bal_ecm))
-
-    seed = 1234
-    np.random.seed(seed)
-    train_split = 0.5
-    test_split = 0.5
-
-    le = preprocessing.LabelEncoder()
-    sampled_df['encoded_target'] = le.fit_transform(sampled_df[target])
-
-    training_bins = np.random.choice(sampled_df['bins'].unique(), int(len(sampled_df['bins'].unique())*train_split), replace=False)
-
-    X_train = sampled_df[sampled_df['bins'].isin(training_bins)]
-    X_test_val = sampled_df[~sampled_df['bins'].isin(training_bins)]
-    X_val, X_test = train_test_split(X_test_val, test_size=test_split, random_state=seed)
-
-    y_train = X_train['encoded_target']
-    y_test = X_test['encoded_target']
-    y_val = X_val['encoded_target']
-
-    dtrain = xgb.DMatrix(X_train[features], label=y_train)
-    dtest = xgb.DMatrix(X_test[features], label=y_test)
-    dval = xgb.DMatrix(X_val[features], label=y_val)
-    booster, acc, true_label, preds = train(best_param, dtrain, dtest, dval, evals=[(dtrain, 'train'), (dval, 'eval')], num_round=815)
-    acc_list.append(acc)
-    true_label_list.append(true_label)
-    preds_list.append(preds)
-    frames_list.append(sampled_df['frames'].tolist())
-    dist_tot_list.append(sampled_df['dist_tot'].tolist())
-    dist_net_list.append(sampled_df['dist_net'].tolist())
-
-output_dict = {'Accuracies': acc_list,
-               'True Labels': true_label_list,
-               'Preds': preds_list,
-               'Trajectory Count': traj_count_list,
-               'Frames': frames_list,
-               'dist_tot': dist_tot_list,
-               'dist_net': dist_net_list}
+output_dict = {'Accuracies': main_acc_list,
+               'True Labels': main_true_label_list,
+               'Preds': main_preds_list,
+                'Trajectory Count': main_traj_count_list,
+                'Num Bins': num_bins_list
+            #    'Frames': frames_list,
+            #    'dist_tot': dist_tot_list,
+            #    'dist_net': dist_net_list}
+}
 df = pd.DataFrame(output_dict)
 # Save a sample of the data in the outputs folder (which gets uploaded automatically)
 os.makedirs('outputs', exist_ok=True)

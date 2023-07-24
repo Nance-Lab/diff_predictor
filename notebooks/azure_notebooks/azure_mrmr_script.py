@@ -1,28 +1,84 @@
+import mrmr
+import pandas as pd
+import numpy as np
+import xgboost as xgb
+from diff_predictor.data_process import generate_fullstats, balance_data, bin_data
+from diff_predictor.predxgboost import train, xgb_paramsearch, cv
+from sklearn.model_selection import train_test_split
+from sklearn import preprocessing
+from sklearn.metrics import accuracy_score
+from sklearn import metrics
+
 from azureml.core import Workspace, Dataset, Run
 from azureml.core.conda_dependencies import CondaDependencies
 from azureml.core import Workspace, Experiment, Environment, ScriptRunConfig, Run
 from azureml.core.conda_dependencies import CondaDependencies
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 from os import listdir, getcwd, chdir
 from os.path import isfile, join
-from sklearn.model_selection import train_test_split
-from sklearn import metrics
-from sklearn.metrics import classification_report
-from sklearn import preprocessing
-from sklearn.metrics import accuracy_score
-import operator
-import xgboost as xgb
 from xgboost.training import CVPack
 from xgboost import callback
 from xgboost.core import CallbackEnv
 from xgboost.core import EarlyStopException
 from xgboost.core import STRING_TYPES
 
-# Get the experiment run context
-run = Run.get_context()
+def balance_data(df, target, **kwargs):
+    """
+    Balances the dataset so there are equal number of rows for each class
+    Parameters:
+    ----------
+    df: pandas.DataFrame
+        dataframe to be balanced
+    target: string
+        name of dataframe column that represents that class the row is from
+    Returns:
+    --------
+    bal_df: pandas.DataFrame
+        dataframe with equal number of rows per unique class
+    """
+    if 'random_state' not in kwargs:
+        random_state = 1
+    else:
+        random_state = kwargs['random_state']
+    df_target = []
+    bal_df = []
+    for name in df[target].unique():
+        df_target.append((name, df[df[target] == name]))
+    print(f"Ratio before data balance ({':'.join([str(i[0]) for i in df_target])}) = {':'.join([str(len(i[1])) for i in df_target])}")
+    for i in range(len(df_target)):
+        ratio = min([len(i[1]) for i in df_target])/len(df_target[i][1])
+        bal_df.append(df_target[i][1].sample(frac=ratio, random_state=random_state))
+    print(f"Ratio after balance ({':'.join([str(i[0]) for i in df_target])}) = {':'.join([str(len(i)) for i in bal_df])}")
+    return pd.concat(bal_df)
+
+
+def bin_data(bal_ecm, resolution=128):
+    """
+    Takes in a dataframe that has a binx and a biny column, and uses
+    those columns to generate a bin column based on the resolution
+    This is necessary for eventual cross validation to prevent data leakage
+    Parameters
+    ----------
+    bal_ecm: pandas.DataFrame
+        dataframe to be processed. Dataframe may need to have balanced classes - use balance_data function
+    resolution: int
+        integer representing the size of the bins. Resolution must be a factor of 2048 and > 128
+        default is 128
+    Returns
+    -------
+    bal_ecm: pandas.DataFrame
+        dataframe with new column indicating which bin a give row is in
+    """
+    assert not 2048%resolution and resolution >= 128, "resolution needs to be a factor of 2048 and > 128"
+    bins = list(range(0, 2048+1, resolution))
+    bin_labels = [int(i/resolution) for i in bins][:-1]
+    bal_ecm['binx'] = pd.cut(bal_ecm['X'], bins, labels=bin_labels, include_lowest=True)
+    bal_ecm.loc[bal_ecm['X'] < 0] = 0
+    bal_ecm['biny'] = pd.cut(bal_ecm.Y, bins, labels=bin_labels, include_lowest=True)
+    bal_ecm['bins'] = (len(bins)-1)*bal_ecm['binx'].astype(np.int32) + bal_ecm['biny'].astype(np.int32)
+    bal_ecm = bal_ecm[np.isfinite(bal_ecm['bins'])]
+    bal_ecm['bins'] = bal_ecm['bins'].astype(int)
+    return bal_ecm
 
 def bin_fold(X_train, nfold):
     '''
@@ -521,115 +577,14 @@ def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000):
     print("Accuracy:",acc)
     return model, acc, true_label, preds
 
-def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'):
-    """
-    Generates single csv of all statatistics from list of files
-    Parameters
-    ---------
-    dataset_path: string
-        string of path to folder containing data files
-    filelist: list
-        list containing filenames of all files to be processed
-    targets: list
-        list containing strings that state which class/group a file is from,
-        string must be in the filename of the data files
-    Target: string
-        
-    Returns
-    -------
-    fstats_tot: pandas.DataFrame
-        dataframe containing all rows from data files and with new column
-        for the class/group the row came from
-    """
-    fstats_tot = None
-    video_num = 0
-    for filename in filelist:
-            fstats = pd.read_csv(dataset_path + filename, encoding = "ISO-8859-1", index_col='Unnamed: 0')
-            #print('{} size: {}'.format(filename, fstats.shape))
-            
-            for i in range(0, len(targets)):
-                if targets[i] in filename:
-                    print('Adding file {} size: {}'.format(filename, fstats.shape))
-                    fstats[target_col_name] = pd.Series(fstats.shape[0]*[targets[i]], index=fstats.index)
 
-                    fstats['Video Number'] = pd.Series(fstats.shape[0]*[video_num], index=fstats.index)
-                    if fstats_tot is None:
-                        fstats_tot = fstats
-                    else:
-                        fstats_tot = fstats_tot.append(fstats, ignore_index=True)
-                    video_num += 1
-                    #break
-
-            
-    return fstats_tot
-    return fstats_tot
-
-def balance_data(df, target, **kwargs):
-    """
-    Balances the dataset so there are equal number of rows for each class
-    Parameters:
-    ----------
-    df: pandas.DataFrame
-        dataframe to be balanced
-    target: string
-        name of dataframe column that represents that class the row is from
-    Returns:
-    --------
-    bal_df: pandas.DataFrame
-        dataframe with equal number of rows per unique class
-    """
-    if 'random_state' not in kwargs:
-        random_state = 1
-    else:
-        random_state = kwargs['random_state']
-    df_target = []
-    bal_df = []
-    for name in df[target].unique():
-        df_target.append((name, df[df[target] == name]))
-    print(f"Ratio before data balance ({':'.join([str(i[0]) for i in df_target])}) = {':'.join([str(len(i[1])) for i in df_target])}")
-    for i in range(len(df_target)):
-        ratio = min([len(i[1]) for i in df_target])/len(df_target[i][1])
-        bal_df.append(df_target[i][1].sample(frac=ratio, random_state=random_state))
-    print(f"Ratio after balance ({':'.join([str(i[0]) for i in df_target])}) = {':'.join([str(len(i)) for i in bal_df])}")
-    return pd.concat(bal_df)
-
-
-def bin_data(bal_ecm, resolution=128):
-    """
-    Takes in a dataframe that has a binx and a biny column, and uses
-    those columns to generate a bin column based on the resolution
-    This is necessary for eventual cross validation to prevent data leakage
-    Parameters
-    ----------
-    bal_ecm: pandas.DataFrame
-        dataframe to be processed. Dataframe may need to have balanced classes - use balance_data function
-    resolution: int
-        integer representing the size of the bins. Resolution must be a factor of 2048 and > 128
-        default is 128
-    Returns
-    -------
-    bal_ecm: pandas.DataFrame
-        dataframe with new column indicating which bin a give row is in
-    """
-    assert not 2048%resolution and resolution >= 128, "resolution needs to be a factor of 2048 and > 128"
-    bins = list(range(0, 2048+1, resolution))
-    bin_labels = [int(i/resolution) for i in bins][:-1]
-    bal_ecm['binx'] = pd.cut(bal_ecm['X'], bins, labels=bin_labels, include_lowest=True)
-    bal_ecm.loc[bal_ecm['X'] < 0] = 0
-    bal_ecm['biny'] = pd.cut(bal_ecm.Y, bins, labels=bin_labels, include_lowest=True)
-    bal_ecm['bins'] = (len(bins)-1)*bal_ecm['binx'].astype(np.int32) + bal_ecm['biny'].astype(np.int32)
-    bal_ecm = bal_ecm[np.isfinite(bal_ecm['bins'])]
-    bal_ecm['bins'] = bal_ecm['bins'].astype(int)
-    return bal_ecm
-
-# This might be redundant, fine for now
 run = Run.get_context()
 
 #for the cloud job script
 workspace = run.experiment.workspace
 
-dataset = Dataset.get_by_name(workspace, name='age_mpt_feature_data')
-dataset.download(target_path='.', overwrite=False)
+dataset = Dataset.get_by_name(workspace, name='age_mpt_features')
+dataset.download(target_path='.', overwrite=True)
 
 datasetpath = getcwd()
 print('Current Notebook Dir: ' + datasetpath)
@@ -661,20 +616,20 @@ print(fstats_tot.head())
 
 
 feature_list = [
-    # 'alpha', # Fitted anomalous diffusion alpha exponenet
-    # 'D_fit', # Fitted anomalous diffusion coefficient
-    # 'kurtosis', # Kurtosis of track
-    # 'asymmetry1', # Asymmetry of trajecory (0 for circular symmetric, 1 for linear)
-    # 'asymmetry2', # Ratio of the smaller to larger principal radius of gyration
-    # 'asymmetry3', # An asymmetric feature that accnts for non-cylindrically symmetric pt distributions
-    # 'AR', # Aspect ratio of long and short side of trajectory's minimum bounding rectangle
-    # 'elongation', # Est. of amount of extension of trajectory from centroid
-    # 'boundedness', # How much a particle with Deff is restricted by a circular confinement of radius r
-    # 'fractal_dim', # Measure of how complicated a self similar figure is
-    # 'trappedness', # Probability that a particle with Deff is trapped in a region
-    # 'efficiency', # Ratio of squared net displacement to the sum of squared step lengths
-    # 'straightness', # Ratio of net displacement to the sum of squared step lengths
-    # 'MSD_ratio', # MSD ratio of the track
+    'alpha', # Fitted anomalous diffusion alpha exponenet
+    'D_fit', # Fitted anomalous diffusion coefficient
+    'kurtosis', # Kurtosis of track
+    'asymmetry1', # Asymmetry of trajecory (0 for circular symmetric, 1 for linear)
+    'asymmetry2', # Ratio of the smaller to larger principal radius of gyration
+    'asymmetry3', # An asymmetric feature that accnts for non-cylindrically symmetric pt distributions
+    'AR', # Aspect ratio of long and short side of trajectory's minimum bounding rectangle
+    'elongation', # Est. of amount of extension of trajectory from centroid
+    'boundedness', # How much a particle with Deff is restricted by a circular confinement of radius r
+    'fractal_dim', # Measure of how complicated a self similar figure is
+    'trappedness', # Probability that a particle with Deff is trapped in a region
+    'efficiency', # Ratio of squared net displacement to the sum of squared step lengths
+    'straightness', # Ratio of net displacement to the sum of squared step lengths
+    'MSD_ratio', # MSD ratio of the track
 #     'frames', # Number of frames the track spans
     'Deff1', # Effective diffusion coefficient at 0.33 s
     'Deff2', # Effective diffusion coefficient at 3.3 s
@@ -684,20 +639,20 @@ feature_list = [
     #'dist_tot', # Total distance of the trajectory
     #'dist_net', # Net distance from first point to last point
     #'progression', # Ratio of the net distance traveled and the total distance
-    # 'Mean alpha', 
-    # 'Mean D_fit', 
-    # 'Mean kurtosis', 
-    # 'Mean asymmetry1', 
-    # 'Mean asymmetry2',
-    # 'Mean asymmetry3', 
-    # 'Mean AR',
-    # 'Mean elongation', 
-    # 'Mean boundedness',
-    # 'Mean fractal_dim', 
-    # 'Mean trappedness', 
-    # 'Mean efficiency',
-    # 'Mean straightness', 
-    # 'Mean MSD_ratio', 
+    'Mean alpha', 
+    'Mean D_fit', 
+    'Mean kurtosis', 
+    'Mean asymmetry1', 
+    'Mean asymmetry2',
+    'Mean asymmetry3', 
+    'Mean AR',
+    'Mean elongation', 
+    'Mean boundedness',
+    'Mean fractal_dim', 
+    'Mean trappedness', 
+    'Mean efficiency',
+    'Mean straightness', 
+    'Mean MSD_ratio', 
     'Mean Deff1', 
     'Mean Deff2',
     ]
@@ -730,9 +685,10 @@ y_train = X_train['encoded_target']
 y_test = X_test['encoded_target']
 y_val = X_val['encoded_target']
 
-dtrain = xgb.DMatrix(X_train[features], label=y_train)
-dtest = xgb.DMatrix(X_test[features], label=y_test)
-dval = xgb.DMatrix(X_val[features], label=y_val)
+X_train = X_train[features]
+
+selected_features = mrmr.mrmr_classif(X_train, y_train, K=10)
+print(selected_features)
 
 param = {'max_depth': 3,
          'eta': 0.005,
@@ -751,81 +707,17 @@ param = {'max_depth': 3,
          'predictor': 'gpu_predictor'
          }
 
-# print('beginning hyperparameter search')
-(best_model, best_param, best_eval, best_boost_rounds) = xgb_paramsearch(X_train, y_train, features, init_params=param, nfold=5, num_boost_round=2000, early_stopping_rounds=3, use_gpu='True')
+dtrain = xgb.DMatrix(X_train[features], label=y_train)
+dtest = xgb.DMatrix(X_test[features], label=y_test)
+dval = xgb.DMatrix(X_val[features], label=y_val)
 
-#best_param = {'max_depth': 5, 'eta': 0.01, 'min_child_weight': 10, 'verbosity': 0, 'objective': 'multi:softprob', 'num_class': 3, 'silent': 'True', 'gamma': 0, 'subsample': 0.6, 'colsample_bytree': 0.5, 'eval_metric': 'mlogloss', 'gpu_id': 0, 'tree_method': 'gpu_hist', 'predictor': 'gpu_predictor'}
+dtrain_mrmr = xgb.DMatrix(X_train[selected_features], label=y_train)
+dtest_mrmr = xgb.DMatrix(X_test[selected_features], label=y_test)
+dval_mrmr = xgb.DMatrix(X_val[selected_features], label=y_val)
 
+results_regular = cv(params=param, X_train=dtrain, y_train=y_train, num_boost_round=200, nfold=5, early_stopping_rounds=100, verbose_eval=100)
 
-# print('successfully found best hyperparameters:')
-print(best_param)
-# print('successfully found best boost rounds:')
-# print(best_boost_rounds[3]) #last index of tuple is the boost rounds
+results_mrmr = cv(params=param, X_train=dtrain_mrmr, y_train=y_train, num_boost_round=200, nfold=5, early_stopping_rounds=100, verbose_eval=100)
 
-acc_list = []
-true_label_list = []
-preds_list = []
-traj_count_list = []
-frames_list = []
-dist_tot_list = []
-dist_net_list = []
-for i in range(50):
-#     sampled_filelist = []
-#     class_lens = [0, 15, 30, 45, 60, 75] # this is specific to the age data set!
-#     for i in range(len(class_lens)-1):
-#         rand_integers = random.sample(set(np.arange(class_lens[i], class_lens[i+1])), 15)
-#         for rand_int in rand_integers:
-#             sampled_filelist.append(filelist[rand_int])
-    fstats_tot = generate_fullstats(datasetpath, filelist, ['P14', 'P35', 'P70'], 'age')
-    ecm = fstats_tot[feature_list + [target, 'Track_ID', 'X', 'Y', 'frames', 'dist_tot', 'dist_net']]
-    ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)] 
-    bal_ecm = balance_data(ecm, target)
-    sampled_df = bin_data(bal_ecm)
-    label_df = sampled_df['age']
-    features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID', 'frames', 'dist_tot', 'dist_net'], axis=1)
-    features = features_df.columns
-    traj_count_list.append(len(bal_ecm))
-
-    seed = 1234
-    np.random.seed(seed)
-    train_split = 0.5
-    test_split = 0.5
-
-    le = preprocessing.LabelEncoder()
-    sampled_df['encoded_target'] = le.fit_transform(sampled_df[target])
-
-    training_bins = np.random.choice(sampled_df['bins'].unique(), int(len(sampled_df['bins'].unique())*train_split), replace=False)
-
-    X_train = sampled_df[sampled_df['bins'].isin(training_bins)]
-    X_test_val = sampled_df[~sampled_df['bins'].isin(training_bins)]
-    X_val, X_test = train_test_split(X_test_val, test_size=test_split, random_state=seed)
-
-    y_train = X_train['encoded_target']
-    y_test = X_test['encoded_target']
-    y_val = X_val['encoded_target']
-
-    dtrain = xgb.DMatrix(X_train[features], label=y_train)
-    dtest = xgb.DMatrix(X_test[features], label=y_test)
-    dval = xgb.DMatrix(X_val[features], label=y_val)
-    booster, acc, true_label, preds = train(best_param, dtrain, dtest, dval, evals=[(dtrain, 'train'), (dval, 'eval')], num_round=815)
-    acc_list.append(acc)
-    true_label_list.append(true_label)
-    preds_list.append(preds)
-    frames_list.append(sampled_df['frames'].tolist())
-    dist_tot_list.append(sampled_df['dist_tot'].tolist())
-    dist_net_list.append(sampled_df['dist_net'].tolist())
-
-output_dict = {'Accuracies': acc_list,
-               'True Labels': true_label_list,
-               'Preds': preds_list,
-               'Trajectory Count': traj_count_list,
-               'Frames': frames_list,
-               'dist_tot': dist_tot_list,
-               'dist_net': dist_net_list}
-df = pd.DataFrame(output_dict)
-# Save a sample of the data in the outputs folder (which gets uploaded automatically)
-os.makedirs('outputs', exist_ok=True)
-df.to_csv("outputs/run_data.csv", index=False, header=True)
-
-# Complete the run
-run.complete()
+print(f"Regular results: {results_regular}")
+print(f'MRMR results: {results_mrmr}')
