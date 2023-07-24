@@ -15,3 +15,5 @@ dependencies:
   - stochastic
   - diff_classifier
   - scikit-learn
+  - polars
+  - mrmr-selection
