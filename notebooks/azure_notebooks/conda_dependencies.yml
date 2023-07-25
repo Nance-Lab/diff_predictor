@@ -17,3 +17,5 @@ dependencies:
   - scikit-learn
   - polars
   - mrmr-selection
+  - mlflow
+  - azureml-mlflow

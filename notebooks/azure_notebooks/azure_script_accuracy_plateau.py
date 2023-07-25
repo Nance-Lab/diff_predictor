@@ -6,8 +6,11 @@ from azureml.core.conda_dependencies import CondaDependencies
 from azureml.core.datastore import Datastore
 from azureml.core.dataset import Dataset
 
-
+import json
 import random
+import mlflow
+import seaborn as sns
+
 
 import pandas as pd
 import numpy as np
@@ -627,7 +630,7 @@ def bin_data(bal_ecm, resolution=128):
     bal_ecm['bins'] = bal_ecm['bins'].astype(int)
     return bal_ecm
 
-def subsample_dataframe(df, num_classes, class_column, fraction):
+def subsample_dataframe(df, class_list, class_column, fraction):
     # Calculate the number of data points in the class with the lowest number of data points
     class_counts = df[class_column].value_counts()
     min_class_count = class_counts.min()
@@ -635,12 +638,16 @@ def subsample_dataframe(df, num_classes, class_column, fraction):
 
     # Calculate the desired number of data points for each class based on the fraction
     desired_class_count = int(min_class_count * fraction)
+    print(f'desired class count: {desired_class_count}')
 
     # Subsample the DataFrame for each class
     sampled_dfs = []
-    for class_label in range(num_classes):
-        class_df = df[df['class_column'] == class_label]
-        init_sampled_df = class_df.sample(n=desired_class_count, replace=True, random_state=None)
+    for class_label in class_list:
+        class_df = df[df[class_column] == class_label]
+        print(len(class_df))
+        init_sampled_df = class_df.sample(frac=fraction)
+        print(len(init_sampled_df))
+        print()
         sampled_dfs.append(init_sampled_df)
 
     # Combine the subsampled DataFrames back into one DataFrame
@@ -653,6 +660,8 @@ run = Run.get_context()
 
 #for the cloud job script
 workspace = run.experiment.workspace
+
+#mlflow.autolog()
 
 
 dataset = Dataset.get_by_name(workspace, name='P17_OGD_3div_STR_features')
@@ -747,7 +756,7 @@ for fraction in range(1, 11, 1):
     preds_list = []
     trajectory_count_list = []
     num_bins_list = []
-    for i in range(25):
+    for i in range(10):
     #     sampled_filelist = []
     #     class_lens = [0, 15, 30, 45, 60, 75] # this is specific to the age data set!
     #     for i in range(len(class_lens)-1):
@@ -759,7 +768,7 @@ for fraction in range(1, 11, 1):
         ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)] 
         bal_ecm = balance_data(ecm, target)
 
-        sub_sampled_df = subsample_dataframe(bal_ecm, num_classes, target, fraction=(fraction/10))
+        sub_sampled_df = subsample_dataframe(bal_ecm, ['1h', '2h', '3h', 'NT'], target, fraction=(fraction/10))
 
         sampled_df = bin_data(sub_sampled_df)
         label_df = sampled_df[target]
@@ -795,6 +804,21 @@ for fraction in range(1, 11, 1):
         preds_list.append(preds)
         trajectory_count_list.append(len(X_train))
         num_bins = len(X_train['bins'].unique())
+
+        #make and store plot
+        class_names = le.classes_
+        metrics.confusion_matrix(true_label, preds)
+        fig = plt.figure(figsize=(12,10))
+        cm_array = metrics.confusion_matrix(true_label, preds)
+        df_cm = pd.DataFrame(cm_array, index = class_names, columns = class_names)
+
+        sns.set_context("paper", font_scale=2) #font_scale=1.4)
+        ax = sns.heatmap(df_cm, annot=True, annot_kws={"size": 10}, cmap="YlGnBu")
+        plt.ylabel('True label', fontsize=20)#, weight='bold')
+        plt.xlabel('Predicted label', fontsize=20)#, weight='bold')
+        plt.title(f'Confusion Matrix for Model Predictions with {fraction*10}% of dataset', fontsize=20)#, weight='bold')
+        mlflow.log_figure(fig, f"confusion_matrix_{fraction}_run_{i}.png")
+
     main_acc_list.append(acc_list)
     main_true_label_list.append(true_label_list)
     main_preds_list.append(preds_list)
@@ -812,10 +836,12 @@ output_dict = {'Accuracies': main_acc_list,
             #    'dist_tot': dist_tot_list,
             #    'dist_net': dist_net_list}
 }
-df = pd.DataFrame(output_dict)
-# Save a sample of the data in the outputs folder (which gets uploaded automatically)
-os.makedirs('outputs', exist_ok=True)
-df.to_csv("outputs/run_data.csv", index=False, header=True)
+# df = pd.DataFrame(output_dict)
+# # Save a sample of the data in the outputs folder (which gets uploaded automatically)
+# os.makedirs('outputs', exist_ok=True)
+# df.to_csv("outputs/run_data.csv", index=False, header=True)
+mlflow.log_dict(output_dict, "run_data.yaml")
+
 
 # Complete the run
 run.complete()

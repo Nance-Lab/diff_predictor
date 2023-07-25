@@ -634,7 +634,7 @@ run = Run.get_context()
 workspace = run.experiment.workspace
 
 
-dataset = Dataset.get_by_name(workspace, name='P17_OGD_3div_STR_features')
+dataset = Dataset.get_by_name(workspace, name='P10_OGD_1div_CRT_features')
 dataset.download(target_path='.', overwrite=True)
 # datastore = Datastore.get(workspace, 'workspaceblobstore')
 # cortex_3d_dataset = Dataset.File.from_files(path=(datastore, 'UI/2023-07-11_223238_UTC/'))
