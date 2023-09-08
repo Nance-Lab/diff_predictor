@@ -4,6 +4,7 @@ from azureml.core import Workspace, Experiment, Environment, ScriptRunConfig, Ru
 from azureml.core.conda_dependencies import CondaDependencies
 
 import pandas as pd
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from os import listdir, getcwd, chdir
@@ -20,6 +21,10 @@ from xgboost import callback
 from xgboost.core import CallbackEnv
 from xgboost.core import EarlyStopException
 from xgboost.core import STRING_TYPES
+
+import json
+
+SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
 
 # Get the experiment run context
 run = Run.get_context()
@@ -513,7 +518,7 @@ def train(param, dtrain, dtest, dval=None, evals=None, num_round=2000):
     '''
     if dval is not None and (dval, 'eval') not in evals:
         evals += [(dval, 'eval')]
-    model = xgb.train(param, dtrain, num_round, evals)
+    model = xgb.train(param, dtrain, num_round, evals, verbose_eval=False)
     true_label = dtest.get_label()
     ypred = model.predict(dtest)
     preds = [np.where(x == np.max(x))[0][0] for x in ypred]
@@ -545,14 +550,17 @@ def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'
     video_num = 0
     for filename in filelist:
             fstats = pd.read_csv(dataset_path + filename, encoding = "ISO-8859-1", index_col='Unnamed: 0')
+            filename_col = [filename]*len(fstats)
             #print('{} size: {}'.format(filename, fstats.shape))
+            fstats['Filename'] = filename_col
             
             for i in range(0, len(targets)):
                 if targets[i] in filename:
                     print('Adding file {} size: {}'.format(filename, fstats.shape))
                     fstats[target_col_name] = pd.Series(fstats.shape[0]*[targets[i]], index=fstats.index)
-
-                    fstats['Video Number'] = pd.Series(fstats.shape[0]*[video_num], index=fstats.index)
+                    #fstats['Filename'] = pd.Series(fstats.shape[0]*[filename], index=fstats.index)
+                    print(fstats['Filename'][0:5])
+                    #fstats['Video Number'] = pd.Series(fstats.shape[0]*[video_num], index=fstats.index)
                     if fstats_tot is None:
                         fstats_tot = fstats
                     else:
@@ -562,8 +570,7 @@ def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'
 
             
     return fstats_tot
-    return fstats_tot
-
+            
 def balance_data(df, target, **kwargs):
     """
     Balances the dataset so there are equal number of rows for each class
@@ -622,14 +629,43 @@ def bin_data(bal_ecm, resolution=128):
     bal_ecm['bins'] = bal_ecm['bins'].astype(int)
     return bal_ecm
 
+def subsample_dataframe(df, class_list, class_column, fraction):
+    # Calculate the number of data points in the class with the lowest number of data points
+    class_counts = df[class_column].value_counts()
+    min_class_count = class_counts.min()
+    print(f'minimum class count: {min_class_count}')
+
+    # Calculate the desired number of data points for each class based on the fraction
+    desired_class_count = int(min_class_count * fraction)
+    print(f'desired class count: {desired_class_count}')
+
+    # Subsample the DataFrame for each class
+    sampled_dfs = []
+    for class_label in class_list:
+        class_df = df[df[class_column] == class_label]
+        print(len(class_df))
+        init_sampled_df = class_df.sample(frac=fraction)
+        print(len(init_sampled_df))
+        print()
+        sampled_dfs.append(init_sampled_df)
+
+    # Combine the subsampled DataFrames back into one DataFrame
+    subsampled_df = pd.concat(sampled_dfs)
+
+    return subsampled_df
+
 # This might be redundant, fine for now
 run = Run.get_context()
 
 #for the cloud job script
 workspace = run.experiment.workspace
-
-dataset = Dataset.get_by_name(workspace, name='age_mpt_feature_data')
+# for east_us_2, west_us_3
+dataset = Dataset.get_by_name(workspace, name='age_all_ages_features')
 dataset.download(target_path='.', overwrite=False)
+
+# for west_us_2
+# dataset = Dataset.get_by_name(workspace, name='age_mpt_features')
+# dataset.download(target_path='.', overwrite=False)
 
 datasetpath = getcwd()
 print('Current Notebook Dir: ' + datasetpath)
@@ -655,26 +691,26 @@ print(filelist[0:5])
 #         sampled_filelist.append(filelist[rand_int])
 #         print(filelist[rand_int])
 
-print('running generate_fullstats function on subset filelist')
-fstats_tot = generate_fullstats(datasetpath, filelist, ['P14', 'P35', 'P70'], 'age')
-print(fstats_tot.head())
+# print('running generate_fullstats function on subset filelist')
+# fstats_tot = generate_fullstats(datasetpath, filelist, ['P14','P21', 'P28', 'P35', 'P70'], 'age')
+# print(fstats_tot.head())
 
 
 feature_list = [
-    # 'alpha', # Fitted anomalous diffusion alpha exponenet
-    # 'D_fit', # Fitted anomalous diffusion coefficient
-    # 'kurtosis', # Kurtosis of track
-    # 'asymmetry1', # Asymmetry of trajecory (0 for circular symmetric, 1 for linear)
-    # 'asymmetry2', # Ratio of the smaller to larger principal radius of gyration
-    # 'asymmetry3', # An asymmetric feature that accnts for non-cylindrically symmetric pt distributions
-    # 'AR', # Aspect ratio of long and short side of trajectory's minimum bounding rectangle
-    # 'elongation', # Est. of amount of extension of trajectory from centroid
-    # 'boundedness', # How much a particle with Deff is restricted by a circular confinement of radius r
-    # 'fractal_dim', # Measure of how complicated a self similar figure is
-    # 'trappedness', # Probability that a particle with Deff is trapped in a region
-    # 'efficiency', # Ratio of squared net displacement to the sum of squared step lengths
-    # 'straightness', # Ratio of net displacement to the sum of squared step lengths
-    # 'MSD_ratio', # MSD ratio of the track
+    'alpha', # Fitted anomalous diffusion alpha exponenet
+    'D_fit', # Fitted anomalous diffusion coefficient
+    'kurtosis', # Kurtosis of track
+    'asymmetry1', # Asymmetry of trajecory (0 for circular symmetric, 1 for linear)
+    'asymmetry2', # Ratio of the smaller to larger principal radius of gyration
+    'asymmetry3', # An asymmetric feature that accnts for non-cylindrically symmetric pt distributions
+    'AR', # Aspect ratio of long and short side of trajectory's minimum bounding rectangle
+    'elongation', # Est. of amount of extension of trajectory from centroid
+    'boundedness', # How much a particle with Deff is restricted by a circular confinement of radius r
+    'fractal_dim', # Measure of how complicated a self similar figure is
+    'trappedness', # Probability that a particle with Deff is trapped in a region
+    'efficiency', # Ratio of squared net displacement to the sum of squared step lengths
+    'straightness', # Ratio of net displacement to the sum of squared step lengths
+    'MSD_ratio', # MSD ratio of the track
 #     'frames', # Number of frames the track spans
     'Deff1', # Effective diffusion coefficient at 0.33 s
     'Deff2', # Effective diffusion coefficient at 3.3 s
@@ -684,77 +720,77 @@ feature_list = [
     #'dist_tot', # Total distance of the trajectory
     #'dist_net', # Net distance from first point to last point
     #'progression', # Ratio of the net distance traveled and the total distance
-    # 'Mean alpha', 
-    # 'Mean D_fit', 
-    # 'Mean kurtosis', 
-    # 'Mean asymmetry1', 
-    # 'Mean asymmetry2',
-    # 'Mean asymmetry3', 
-    # 'Mean AR',
-    # 'Mean elongation', 
-    # 'Mean boundedness',
-    # 'Mean fractal_dim', 
-    # 'Mean trappedness', 
-    # 'Mean efficiency',
-    # 'Mean straightness', 
-    # 'Mean MSD_ratio', 
+    'Mean alpha', 
+    'Mean D_fit', 
+    'Mean kurtosis', 
+    'Mean asymmetry1', 
+    'Mean asymmetry2',
+    'Mean asymmetry3', 
+    'Mean AR',
+    'Mean elongation', 
+    'Mean boundedness',
+    'Mean fractal_dim', 
+    'Mean trappedness', 
+    'Mean efficiency',
+    'Mean straightness', 
+    'Mean MSD_ratio', 
     'Mean Deff1', 
     'Mean Deff2',
     ]
 
 target = 'age'
 
-ecm = fstats_tot[feature_list + [target, 'Track_ID', 'X', 'Y']]
-ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)]       # Removing nan and inf data points
-bal_ecm = balance_data(ecm, target)
-sampled_df = bin_data(bal_ecm)
-label_df = sampled_df['age']
-features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID'], axis=1)
-features = features_df.columns
+# ecm = fstats_tot[feature_list + [target, 'Track_ID', 'X', 'Y', 'Filename']]
+# ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)]       # Removing nan and inf data points
+# bal_ecm = balance_data(ecm, target)
+# sampled_df = bin_data(bal_ecm)
+# label_df = sampled_df['age']
+# features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID', 'Filename'], axis=1)
+# features = features_df.columns
 
-seed = 1234
-np.random.seed(seed)
-train_split = 0.8
-test_split = 0.5
+# seed = 1234
+# np.random.seed(seed)
+# train_split = 0.8
+# test_split = 0.5
 
-le = preprocessing.LabelEncoder()
-sampled_df['encoded_target'] = le.fit_transform(sampled_df[target])
+# le = preprocessing.LabelEncoder()
+# sampled_df['encoded_target'] = le.fit_transform(sampled_df[target])
 
-training_bins = np.random.choice(sampled_df['bins'].unique(), int(len(sampled_df['bins'].unique())*train_split), replace=False)
+# training_bins = np.random.choice(sampled_df['bins'].unique(), int(len(sampled_df['bins'].unique())*train_split), replace=False)
 
-X_train = sampled_df[sampled_df['bins'].isin(training_bins)]
-X_test_val = sampled_df[~sampled_df['bins'].isin(training_bins)]
-X_val, X_test = train_test_split(X_test_val, test_size=test_split, random_state=seed)
+# X_train = sampled_df[sampled_df['bins'].isin(training_bins)]
+# X_test_val = sampled_df[~sampled_df['bins'].isin(training_bins)]
+# X_val, X_test = train_test_split(X_test_val, test_size=test_split, random_state=seed)
 
-y_train = X_train['encoded_target']
-y_test = X_test['encoded_target']
-y_val = X_val['encoded_target']
+# y_train = X_train['encoded_target']
+# y_test = X_test['encoded_target']
+# y_val = X_val['encoded_target']
 
-dtrain = xgb.DMatrix(X_train[features], label=y_train)
-dtest = xgb.DMatrix(X_test[features], label=y_test)
-dval = xgb.DMatrix(X_val[features], label=y_val)
+# dtrain = xgb.DMatrix(X_train[features], label=y_train)
+# dtest = xgb.DMatrix(X_test[features], label=y_test)
+# dval = xgb.DMatrix(X_val[features], label=y_val)
 
 param = {'max_depth': 3,
          'eta': 0.005,
          'min_child_weight': 0,
          'verbosity': 0,
          'objective': 'multi:softprob',
-         'num_class': 3,
+         'num_class': 5,
          'silent': 'True',
          'gamma': 5,
          'subsample': 0.15,
          'colsample_bytree': 0.8,
          'eval_metric': "mlogloss",
          # GPU integration will cut time in ~half:
-         'gpu_id' : 0,
-         'tree_method': 'gpu_hist',
-         'predictor': 'gpu_predictor'
+        #  'gpu_id' : 0,
+        #  'tree_method': 'gpu_hist',
+        #  'predictor': 'gpu_predictor'
          }
 
 # print('beginning hyperparameter search')
-(best_model, best_param, best_eval, best_boost_rounds) = xgb_paramsearch(X_train, y_train, features, init_params=param, nfold=5, num_boost_round=2000, early_stopping_rounds=3, use_gpu='True')
+#(best_model, best_param, best_eval, best_boost_rounds) = xgb_paramsearch(X_train, y_train, features, init_params=param, nfold=5, num_boost_round=2000, early_stopping_rounds=3, use_gpu='True')
 
-#best_param = {'max_depth': 5, 'eta': 0.01, 'min_child_weight': 10, 'verbosity': 0, 'objective': 'multi:softprob', 'num_class': 3, 'silent': 'True', 'gamma': 0, 'subsample': 0.6, 'colsample_bytree': 0.5, 'eval_metric': 'mlogloss', 'gpu_id': 0, 'tree_method': 'gpu_hist', 'predictor': 'gpu_predictor'}
+best_param = {'max_depth': 5, 'eta': 0.01, 'min_child_weight': 10, 'verbosity': 0, 'objective': 'multi:softprob', 'num_class': 5, 'silent': 'True', 'gamma': 0, 'subsample': 0.6, 'colsample_bytree': 0.5, 'eval_metric': 'mlogloss', }#'gpu_id': 0, 'tree_method': 'gpu_hist', 'predictor': 'gpu_predictor'}
 
 
 # print('successfully found best hyperparameters:')
@@ -769,63 +805,112 @@ traj_count_list = []
 frames_list = []
 dist_tot_list = []
 dist_net_list = []
-for i in range(50):
-#     sampled_filelist = []
-#     class_lens = [0, 15, 30, 45, 60, 75] # this is specific to the age data set!
-#     for i in range(len(class_lens)-1):
-#         rand_integers = random.sample(set(np.arange(class_lens[i], class_lens[i+1])), 15)
-#         for rand_int in rand_integers:
-#             sampled_filelist.append(filelist[rand_int])
-    fstats_tot = generate_fullstats(datasetpath, filelist, ['P14', 'P35', 'P70'], 'age')
-    ecm = fstats_tot[feature_list + [target, 'Track_ID', 'X', 'Y', 'frames', 'dist_tot', 'dist_net']]
-    ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)] 
-    bal_ecm = balance_data(ecm, target)
-    sampled_df = bin_data(bal_ecm)
-    label_df = sampled_df['age']
-    features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID', 'frames', 'dist_tot', 'dist_net'], axis=1)
-    features = features_df.columns
-    traj_count_list.append(len(bal_ecm))
+val_traj_list = []
 
-    seed = 1234
-    np.random.seed(seed)
-    train_split = 0.5
-    test_split = 0.5
+fstats_tot = generate_fullstats(datasetpath, filelist, ['P14', 'P21', 'P28', 'P35', 'P70'], 'age')
+ecm = fstats_tot[feature_list + [target, 'Track_ID', 'X', 'Y', 'frames', 'Filename']]
+ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)]
 
-    le = preprocessing.LabelEncoder()
-    sampled_df['encoded_target'] = le.fit_transform(sampled_df[target])
 
-    training_bins = np.random.choice(sampled_df['bins'].unique(), int(len(sampled_df['bins'].unique())*train_split), replace=False)
 
-    X_train = sampled_df[sampled_df['bins'].isin(training_bins)]
-    X_test_val = sampled_df[~sampled_df['bins'].isin(training_bins)]
-    X_val, X_test = train_test_split(X_test_val, test_size=test_split, random_state=seed)
+ensamble_averages = {}
 
-    y_train = X_train['encoded_target']
-    y_test = X_test['encoded_target']
-    y_val = X_val['encoded_target']
+for file_name in filelist:
 
-    dtrain = xgb.DMatrix(X_train[features], label=y_train)
-    dtest = xgb.DMatrix(X_test[features], label=y_test)
-    dval = xgb.DMatrix(X_val[features], label=y_val)
-    booster, acc, true_label, preds = train(best_param, dtrain, dtest, dval, evals=[(dtrain, 'train'), (dval, 'eval')], num_round=815)
-    acc_list.append(acc)
-    true_label_list.append(true_label)
-    preds_list.append(preds)
-    frames_list.append(sampled_df['frames'].tolist())
-    dist_tot_list.append(sampled_df['dist_tot'].tolist())
-    dist_net_list.append(sampled_df['dist_net'].tolist())
+    hold_out_data = ecm[ecm['Filename']==file_name]
 
-output_dict = {'Accuracies': acc_list,
-               'True Labels': true_label_list,
-               'Preds': preds_list,
-               'Trajectory Count': traj_count_list,
-               'Frames': frames_list,
-               'dist_tot': dist_tot_list,
-               'dist_net': dist_net_list}
-df = pd.DataFrame(output_dict)
+    ecm_all_others = ecm[ecm['Filename']!=file_name]
+
+    model_list = []
+
+    for model in range(15):
+
+        #bal_ecm = balance_data(ecm, target)
+        subsampled = subsample_dataframe(ecm_all_others, ['P14', 'P21', 'P28', 'P35', 'P70'], 'age', 0.05)
+        sampled_df = bin_data(subsampled)
+        label_df = sampled_df['age']
+        features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID', 'Filename'], axis=1)
+        features = features_df.columns
+
+        # seed = 1234
+        # np.random.seed(seed)
+        train_split = 0.8
+        test_split = 0.5
+
+        le = preprocessing.LabelEncoder()
+        sampled_df['encoded_target'] = le.fit_transform(sampled_df[target])
+
+        training_bins = np.random.choice(sampled_df['bins'].unique(), int(len(sampled_df['bins'].unique())*train_split), replace=False)
+
+        X_train = sampled_df[sampled_df['bins'].isin(training_bins)]
+        X_test_val = sampled_df[~sampled_df['bins'].isin(training_bins)]
+        X_val, X_test = train_test_split(X_test_val, test_size=test_split)
+
+        
+        y_train = X_train['encoded_target']
+        y_test = X_test['encoded_target']
+        y_val = X_val['encoded_target']
+
+        dtrain = xgb.DMatrix(X_train[features], label=y_train)
+        dtest = xgb.DMatrix(X_test[features], label=y_test)
+        dval = xgb.DMatrix(X_val[features], label=y_val)
+        #print('normal boosting')
+        #bst = xgb.train(best_param, dtrain, num_boost_round=200, evals=[(dtrain, 'train'), (dval, 'eval')])
+        #print('done!')
+        print('starting diff_pred')
+
+        new_model = None
+        booster, acc, true_label, preds = train(best_param, dtrain, dtest, dval, evals=[(dtrain, 'train'), (dval, 'eval')], num_round=815)
+        new_model = booster
+
+        model_list.append(new_model)
+
+    # test_file = ecm[ecm['age'] == 'P14']
+    # print(f'test file shape {test_file.shape}')
+    preds_list = []
+    true_label = le.transform(hold_out_data['age'])
+
+    for model in model_list:
+        prediction = model.predict(xgb.DMatrix(hold_out_data[features]))
+        preds = [np.where(x == np.max(x))[0][0] for x in prediction]
+        preds_list.append(preds)
+
+    print(f'preds list shapes {len(preds_list), len(preds_list[0])}')
+
+    #initialize a list to hold the 10 model accuracy of each data point ->
+    datapoint_acc_list = []
+    # for each of 563 data points:
+    print(f'Starting accuracy calculation for {file_name}')
+    for i in range(len(preds_list[0])):
+    # if i >= 100:
+    #     break
+        data_point_preds = []
+
+        for j, preds in enumerate(preds_list):
+            # Get each model's prediction of that data point -> ten total predictions
+            traj_pred = preds[i]
+            data_point_preds.append(traj_pred)
+        #datapoint_acc_list.append(data_point_preds)
+        #calculate the accuracy of those ten predictions
+        #print(data_point_preds)
+        acc = accuracy_score(y_pred=data_point_preds, y_true=true_label[0:len(data_point_preds)])
+        #print(acc)
+        #store that accuracy in the list list 
+        datapoint_acc_list.append(acc)
+
+    print(datapoint_acc_list)
+    print(np.mean(datapoint_acc_list))
+    ensamble_averages[file_name] = datapoint_acc_list
+    
+    #accuracy_score(y_pred=testtt, y_true=true_label[0:len(testtt)])
+print(ensamble_averages)
+#df = pd.DataFrame(data=ensamble_averages)
 # Save a sample of the data in the outputs folder (which gets uploaded automatically)
 os.makedirs('outputs', exist_ok=True)
-df.to_csv("outputs/run_data.csv", index=False, header=True)
+#df.to_csv("outputs/trajectory_pred_results.csv", index=False, header=True)
 
+# Write the 'ensamble_averages' data to a JSON file
+with open("outputs/trajectory_pred_results.json", 'w', encoding='utf-8') as json_file:
+    json.dump(ensamble_averages, json_file)
 # Complete the run
 run.complete()
