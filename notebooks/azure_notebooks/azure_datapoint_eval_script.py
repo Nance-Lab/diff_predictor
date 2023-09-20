@@ -660,7 +660,7 @@ run = Run.get_context()
 #for the cloud job script
 workspace = run.experiment.workspace
 # for east_us_2, west_us_3
-dataset = Dataset.get_by_name(workspace, name='age_all_ages_features')
+dataset = Dataset.get_by_name(workspace, name='P17_OGD_3div_STR_features')
 dataset.download(target_path='.', overwrite=False)
 
 # for west_us_2
@@ -691,8 +691,12 @@ print(filelist[0:5])
 #         sampled_filelist.append(filelist[rand_int])
 #         print(filelist[rand_int])
 
+#set target
+target = 'treatment'
+classes_list = ['1h', '2h', '3h', 'NT']
+
 print('running generate_fullstats function on subset filelist')
-fstats_tot = generate_fullstats(datasetpath, filelist, ['P14','P21', 'P28', 'P35', 'P70'], 'age')
+fstats_tot = generate_fullstats(datasetpath, filelist, classes_list, target)
 print(fstats_tot.head())
 
 
@@ -738,14 +742,13 @@ feature_list = [
     'Mean Deff2',
     ]
 
-target = 'age'
 
 ecm = fstats_tot[feature_list + [target, 'Track_ID', 'X', 'Y', 'Filename']]
 ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)]       # Removing nan and inf data points
 bal_ecm = balance_data(ecm, target)
 sampled_df = bin_data(bal_ecm)
-label_df = sampled_df['age']
-features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID', 'Filename'], axis=1)
+label_df = sampled_df[target]
+features_df = sampled_df.drop([target, 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID', 'Filename'], axis=1)
 features = features_df.columns
 
 seed = 1234
@@ -791,9 +794,9 @@ param = {'max_depth': 3,
 #(best_model, best_param, best_eval, best_boost_rounds) = xgb_paramsearch(X_train, y_train, features, init_params=param, nfold=5, num_boost_round=2000, early_stopping_rounds=3, use_gpu='True')
 
 #best_param = {'max_depth': 5, 'eta': 0.01, 'min_child_weight': 10, 'verbosity': 0, 'objective': 'multi:softprob', 'num_class': 5, 'silent': 'True', 'gamma': 0, 'subsample': 0.6, 'colsample_bytree': 0.5, 'eval_metric': 'mlogloss', }#'gpu_id': 0, 'tree_method': 'gpu_hist', 'predictor': 'gpu_predictor'}
-best_boost_rounds = 767
+best_boost_rounds = 742
 
-best_param = {'max_depth': 5, 'eta': 0.01, 'min_child_weight': 2, 'verbosity': 0, 'objective': 'multi:softprob', 'num_class': 5, 'silent': 'True', 'gamma': 0.2, 'subsample': 0.6, 'colsample_bytree': 0.5, 'eval_metric': 'mlogloss', 'gpu_id': 0, 'tree_method': 'gpu_hist', 'predictor': 'gpu_predictor'}
+best_param = {'max_depth': 3, 'eta': 0.005, 'min_child_weight': 0, 'verbosity': 0, 'objective': 'multi:softprob', 'num_class': 4, 'silent': 'True', 'gamma': 5, 'subsample': 0.15, 'colsample_bytree': 0.8, 'eval_metric': 'mlogloss', 'gpu_id': 0, 'tree_method': 'gpu_hist', 'predictor': 'gpu_predictor'}
 
 
 # print('successfully found best hyperparameters:')
@@ -810,7 +813,7 @@ dist_tot_list = []
 dist_net_list = []
 val_traj_list = []
 
-fstats_tot = generate_fullstats(datasetpath, filelist, ['P14', 'P21', 'P28', 'P35', 'P70'], 'age')
+fstats_tot = generate_fullstats(datasetpath, filelist, classes_list, target)
 ecm = fstats_tot[feature_list + [target, 'Track_ID', 'X', 'Y', 'frames', 'Filename']]
 ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(1)]
 
@@ -832,9 +835,9 @@ for file_name in filelist:
     for model in range(15):
 
         #bal_ecm = balance_data(ecm, target)
-        subsampled = subsample_dataframe(ecm_all_others, ['P14', 'P21', 'P28', 'P35', 'P70'], 'age', 0.025)
+        subsampled = subsample_dataframe(ecm_all_others, classes_list, target, 0.1)
         sampled_df = bin_data(subsampled)
-        label_df = sampled_df['age']
+        label_df = sampled_df[target]
         features_df = sampled_df.drop(['age', 'X', 'Y', 'binx', 'biny', 'bins', 'Track_ID', 'Filename'], axis=1)
         features = features_df.columns
 
@@ -877,7 +880,7 @@ for file_name in filelist:
     # true_label = le.transform(hold_out_data['age'])
 
     #for model in model_list:
-        true_label = le.transform(hold_out_data['age'])
+        true_label = le.transform(hold_out_data[target])
         prediction = new_model.predict(xgb.DMatrix(hold_out_data[features]))
         preds = [np.where(x == np.max(x))[0][0] for x in prediction]
         preds_list.append(preds)
