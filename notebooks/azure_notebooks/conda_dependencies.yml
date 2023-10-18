@@ -4,13 +4,13 @@ channels:
 dependencies:
 - python=3.7
 - pip=21.3.1
-- py-xgboost#-gpu
 - pip:
   - h5py<=2.10.0
   - azureml-defaults
   - keras<=2.3.1
   - matplotlib
   - protobuf==3.20.1
+  - xgboost==1.2.1
   - stochastic
   - diff_classifier
   - scikit-learn
