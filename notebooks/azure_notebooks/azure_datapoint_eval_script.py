@@ -792,9 +792,9 @@ param = {'max_depth': 3,
 
 print('beginning hyperparameter search')
 (best_model, best_param, best_eval, best_boost_rounds) = xgb_paramsearch(X_train, y_train, features, init_params=param, nfold=5, num_boost_round=2000, early_stopping_rounds=3, use_gpu='True')
-
+print(best_param)
 #best_param = {'max_depth': 5, 'eta': 0.01, 'min_child_weight': 10, 'verbosity': 0, 'objective': 'multi:softprob', 'num_class': 5, 'silent': 'True', 'gamma': 0, 'subsample': 0.6, 'colsample_bytree': 0.5, 'eval_metric': 'mlogloss', }#'gpu_id': 0, 'tree_method': 'gpu_hist', 'predictor': 'gpu_predictor'}
-#best_boost_rounds = 742
+best_boost_rounds = best_boost_rounds[3]
 
 #best_param = {'max_depth': 3, 'eta': 0.005, 'min_child_weight': 0, 'verbosity': 0, 'objective': 'multi:softprob', 'num_class': 4, 'silent': 'True', 'gamma': 5, 'subsample': 0.15, 'colsample_bytree': 0.8, 'eval_metric': 'mlogloss', 'gpu_id': 0, 'tree_method': 'gpu_hist', 'predictor': 'gpu_predictor'}
 
