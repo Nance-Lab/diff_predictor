@@ -17,7 +17,7 @@ from xgboost import callback, DMatrix, Booster
 from xgboost.core import CallbackEnv, EarlyStopException, STRING_TYPES
 from xgboost.training import CVPack
 
-    
+
 def bin_fold(X_train, nfold):
     '''
     Bins data into their respective folds.
