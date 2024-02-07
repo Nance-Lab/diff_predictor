@@ -32,4 +32,7 @@ if __name__ == '__main__':
   y_test, preds = None, None
   metrics.confusion_matrix(y_test, preds) # get confusion matrix
 
-  # do shaft analysis - TODO: where to look to understand how to do this?
+  # do shap analysis -dont worry too much ab this yet
+
+  # TODO: write test functions, xgboost
+  # generalize

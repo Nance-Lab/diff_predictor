@@ -3,13 +3,14 @@ import operator
 import pandas as pd
 import numpy as np
 import xgboost as xgb
-import opendataval as odv
+import opendataval
 import torch
+import tensorflow as tf
 
 from xgboost import callback, DMatrix, Booster
 from xgboost.callback import EarlyStopping, EvaluationMonitor
 
-from xgboost.core import CallbackEnv, EarlyStopException, STRING_TYPES # TODO update this
+from xgboost.core import CallbackEnv, EarlyStopException, STRING_TYPES # TODO replace this
 from xgboost.training import CVPack
 
 from sklearn import metrics
@@ -18,6 +19,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import Cls
 
 from opendataval.model import ClassifierSkLearnWrapper
+from opendataval.model.metrics import accuracy
+
 # from odv.dataloader import DataFetcher # fetcher has covar/label dim information
 # from odv.model import ModelFactory
 
@@ -27,12 +30,14 @@ listed on scikit-learn, and train it on MPT data. Aims to ensure that,
 regardless of what model is used, hyperparameter tuning and train test
 validation splitting appropriately have no leakage of trajectories that
 are in the same microenvironment.
-TODO: wait -- should this wrapper also accommodate non-sklearn models like xgboost?
-      or should we keep predxgboost separate? we still need to update predxgboost.py
 '''
 
-def paramsearch(X_train, y_train, features, init_params, nfold=5,
-                    early_stopping_rounds=3, **kwargs):
+#pass in init_params
+
+
+def paramsearch(X_train : pd.DataFrame, y_train : pd.DataFrame,
+                features, init_params, nfold=5,
+                early_stopping_rounds=3, **kwargs):
     '''
     Extensive parameter search for a model listed on scikit-learn.
     Uses random search to tune hyperparameters to a .
@@ -57,7 +62,7 @@ def paramsearch(X_train, y_train, features, init_params, nfold=5,
     Optional Parameters
     -------------------
     (xgboost) num_boost_round : int
-        Maximum number of boosted decsion tree rounds to run through
+        Maximum number of boosted decision tree rounds to run through
     use_gpu : boolean : False
         Use cuda processing if gpu supports it
     metrics : list
@@ -77,7 +82,7 @@ def paramsearch(X_train, y_train, features, init_params, nfold=5,
     Returns
     -------
     best_model : dataframe
-        results of best crossvalidated model with metrics of each boosted round
+        results of best cross-validated model with metrics of each boosted round
     best_param : dict
         hyperparameters of best found model
     best_eval : float
@@ -90,8 +95,8 @@ def paramsearch(X_train, y_train, features, init_params, nfold=5,
     if 'use_gpu' in kwargs and kwargs['use_gpu']:
         # GPU integration will cut cv time in ~half:
         params.update({'gpu_id': 0,
-                        'tree_method': 'gpu_hist',
-                        'predictor': 'gpu_predictor'})
+                       'tree_method': 'gpu_hist',
+                       'predictor': 'gpu_predictor'})
 
     if 'metrics' not in kwargs:
         metrics = {params['eval_metric']}
@@ -123,24 +128,24 @@ def paramsearch(X_train, y_train, features, init_params, nfold=5,
 
     num_boost_round = kwargs.get('num_boost_round', None)
 
-    if num_boost_round: # xgboost
+    if num_boost_round:  # xgboost
         best_model = cv(params,
-                      X_train,
-                      y_train,
-                      features,
-                      nfold=nfold,
-                      early_stopping_rounds=early_stopping_rounds,
-                      metrics=metrics,
-                      num_boost_round=num_boost_round)
+                        X_train,
+                        y_train,
+                        features,
+                        nfold=nfold,
+                        early_stopping_rounds=early_stopping_rounds,
+                        metrics=metrics,
+                        num_boost_round=num_boost_round)
         best_boost_rounds = best_model[f"test-{params['eval_metric']}-mean"].idxmin()
-    else: # rf
+    else:  # general sci-kit learn models
         best_model = cv(params,
-                      X_train,
-                      y_train,
-                      features,
-                      nfold=nfold,
-                      early_stopping_rounds=early_stopping_rounds,
-                      metrics=metrics)
+                        X_train,
+                        y_train,
+                        features,
+                        nfold=nfold,
+                        early_stopping_rounds=early_stopping_rounds,
+                        metrics=metrics)
 
     best_eval = best_model[f"test-{params['eval_metric']}-mean"].min()
 
@@ -162,7 +167,7 @@ def paramsearch(X_train, y_train, features, init_params, nfold=5,
                           metrics=metrics,
                           **kwargs)
             cv_eval = cv_model[f"test-{local_param['eval_metric']}-mean"].min()
-            if 'best_boost_rounds' in kwargs: #xgboost
+            if 'best_boost_rounds' in kwargs:  # xgboost
                 boost_rounds = cv_model[f"test-{local_param['eval_metric']}-mean"].idxmin()
                 if (eval_f(cv_eval, best_eval)):
                     best_model = cv_model
@@ -170,11 +175,11 @@ def paramsearch(X_train, y_train, features, init_params, nfold=5,
                     best_param[var2n] = var2
                     best_eval = cv_eval
                     if not best_boost_rounds:
-                        best_boost_rounds = boost_rounds # only update if not None
+                        best_boost_rounds = boost_rounds  # only update if not None
                     print(f"New best param found: "
                           f"{local_param['eval_metric']} = {{{best_eval}}}, "
                           f"boost_rounds = {{{best_boost_rounds}}}")
-            else: #rf
+            else:  # general sci-kit learn models
                 if (eval_f(cv_eval, best_eval)):
                     best_model = cv_model
                     best_param[var1n] = var1
@@ -182,9 +187,9 @@ def paramsearch(X_train, y_train, features, init_params, nfold=5,
                     best_eval = cv_eval
                     print(f"New best param found: "
                           f"{local_param['eval_metric']} = {{{best_eval}}}")
-        if 'best_boost_rounds' in kwargs:
+        if 'best_boost_rounds' in kwargs:  # xgboost
             return (best_model, best_param, best_eval, best_boost_rounds)
-        else:
+        else:  # general sci-kit learn models
             return (best_model, best_param, best_eval)
 
     while early_break > 0:
@@ -195,32 +200,32 @@ def paramsearch(X_train, y_train, features, init_params, nfold=5,
             for subsample in gs_params['subsample']
             for colsample in gs_params['colsample']
         }
-        if best_boost_rounds:
+        if best_boost_rounds:  # xgboost
             best_model, best_param, best_eval, best_boost_rounds = _gs_helper('subsample',
                                                                               'colsample_bytree',
                                                                               best_model,
                                                                               best_param,
                                                                               best_eval,
                                                                               best_boost_rounds)
-        else:
+        else:  # general sci-kit learn models
             best_model, best_param, best_eval = _gs_helper('subsample',
-                                                            'colsample_bytree',
-                                                            best_model,
-                                                            best_param,
-                                                            best_eval)
+                                                           'colsample_bytree',
+                                                           best_model,
+                                                           best_param,
+                                                           best_eval)
         gs_param = {
             (max_depth, min_child_weight)
             for max_depth in gs_params['max_depth']
             for min_child_weight in gs_params['min_child_weight']
         }
-        if best_boost_rounds: #xgboost
+        if best_boost_rounds: # xgboost
             best_model, best_param, best_eval, best_boost_rounds = _gs_helper('max_depth',
                                                                               'min_child_weight',
                                                                               best_model,
                                                                               best_param,
                                                                               best_eval,
                                                                               best_boost_rounds)
-        else: #rf
+        else:  # general sci-kit learn models
             best_model, best_param, best_eval = _gs_helper('max_depth',
                                                            'min_child_weight',
                                                             best_model,
@@ -231,14 +236,14 @@ def paramsearch(X_train, y_train, features, init_params, nfold=5,
             for eta in gs_params['eta']
             for gamma in gs_params['gamma']
         }
-        if best_boost_rounds: #xgboost
+        if best_boost_rounds:  # xgboost
             best_model, best_param, best_eval, best_boost_rounds = _gs_helper('eta',
                                                                               'gamma',
                                                                               best_model,
                                                                               best_param,
                                                                               best_eval,
                                                                               best_boost_rounds)
-        else: #rf
+        else:  # general sci-kit learn models
             best_model, best_param, best_eval = _gs_helper('eta',
                                                            'gamma',
                                                             best_model,
@@ -248,25 +253,27 @@ def paramsearch(X_train, y_train, features, init_params, nfold=5,
             early_break -= 1
         seed += 1
 
-    if num_boost_round: # xgboost
+    if num_boost_round:  # xgboost
         return (best_model, best_param, best_eval, best_boost_rounds)
-    else:
+    else:  # general sci-kit learn models
         return (best_model, best_param, best_eval)
 
 
-def train(model, param, dtrain, dtest, dval=None, evals=None, num_round=2000, verbose=True):
+def train(model, param, X_train : pd.DataFrame, y_train : pd.DataFrame,
+          X_test : pd.DataFrame, y_test : pd.DataFrame,
+          dval=False, evals=None, num_round=2000, verbose=True):
     '''
     Parameters
     ----------
     model:
-        A model (from sklearn) to be trained and returned.
+        A model (from scikit-learn) to be trained and returned.
     param : dict
         dictionary of parameters used for training.
         max_depth : maximum allowed depth of a tree,
-        eta : step size shrinkage used toprevent overfiiting,
+        eta : step size shrinkage used to prevent overfitting,
         min_child_weight : minimum sum of instance weight (hessian)
                            needed in a child,
-        verbosity : verbosity of prited messages,
+        verbosity : verbosity of printed messages,
         objective : learning objective,
         num_class : number of classes in prediction,
         gamma : minimum loss reduction required to make a further
@@ -274,20 +281,22 @@ def train(model, param, dtrain, dtest, dval=None, evals=None, num_round=2000, ve
         subsample : subsample ratio of the training instances,
         colsample_bytree : subsample ratio of columns when
                            constructing each tree,
-        eval_metric : eval metric used for validatiion data
-    dtrain : xgboost.DMatrix TODO dtrain: pandas.DataFrame -- should this be split up into x_train and y_train?
+        eval_metric : eval metric used for validation data
+    X_train : pandas.DataFrame
         training data for fitting.
-    dtest : xgboost.DMatrix TODO alt: pandas.DataFrame
-        testing data for fitting.
+    y_train : pandas.DataFrame
+        training data for fitting.
+    X_test : pandas.DataFrame
+        labels to predict.
 
     Optional Parameters
     -------------------
-    dval : xgboost.DMatrix : None TODO I feel like this is xgboost specific?
+    (xgboost) dval : xgboost.DMatrix : None TODO xgboost specific?
         optional evaluation data for fitting.
-    evals : list : None TODO I feel like this is xgboost specific?
+    evals : list : None
         evaluation configuration. Will report results in this form. If dval is
         used, will automatically update to [(dtrain, `train`), (dval, `eval`)].
-        Will use the last evaulation value in the list to test for loss
+        Will use the last evaluation value in the list to test for loss
         convergence
     (xgboost) num_rounds : int : 2000
         Number of boosting rounds to go through when training. A higher number
@@ -297,49 +306,71 @@ def train(model, param, dtrain, dtest, dval=None, evals=None, num_round=2000, ve
 
     Returns
     -------
-    model : xgboost.Classifier TODO - generalize
+    model : model from scikit-learn
         Resulting trained model.
     acc : float
         Accuracy of trained model.
-    label: TODO - what type is this?
-    preds:
+    label: TODO - what type? not mentioned in predxgboost file
+    preds: TODO - what type? not mentioned in predxgboost file
         Predictions from trained model.
     '''
-    if evals is None:
-        evals = [(dtrain, 'train')]
-    if dval is not None and (dval, 'eval') not in evals:
-        evals += [(dval, 'eval')]
 
-    trained_model, ypred = None, None
+    # xtrain, y_train
+    # X_val, y_val
 
-    if type(model) == xgb.Booster or type(model) == xgb.XGBClassifier:
+    # if evals is None:
+    #     evals = [(dtrain, 'train')]
+    # if dval is not None and (dval, 'eval') not in evals:
+    #     evals += [(dval, 'eval')]
+
+    y_pred = None
+    # y_train, y_test vectors
+
+    if isinstance(model, xgb.Booster) or isinstance(model, xgb.XGBClassifier):  # xgboost
         # model.fit(X_train, y_train, eval_set=[(X_test, y_test)])
         # TODO - might want to use this instead to conform to sklearn
-        trained_model = xgb.train(param, dtrain, num_round, evals, verbose_eval=verbose)
-        ypred = trained_model.predict(dtest)
-    else:
+        # trained_model = xgb.train(param, dtrain, num_round, evals, verbose_eval=verbose)
+        # y_pred = trained_model.predict(X_test_tensor)
+        pass
+        # 50-50 split of test and val
+    else:  # general sci-kit learn models
         num_classes = param['num_class']
         wrapped_model = ClassifierSkLearnWrapper(model, num_classes)
-        trained_model = wrapped_model.fit()
-        # fit(x_train: Tensor | Dataset, y_train: Tensor | Dataset, *args, sample_weight: Tensor | None = None, **kwargs)
+
+        # convert given data to Tensors
+        X_train_tensor = torch.tensor(X_train.values)
+        y_train_tensor = torch.tensor(y_train.values)
+        X_test_tensor = torch.tensor(X_test.values)
+
+        # train by calling wrapper's fit()
         # https://opendataval.github.io/opendataval.model.html#opendataval.model.api.ClassifierSkLearnWrapper.fit
-        dtest_tensor = torch.tensor(dtest.values)
-        ypred = wrapped_model.predict(dtest_tensor)
-        # fit(x_train: Tensor | Dataset, y_train: Tensor | Dataset, *args, sample_weight: Tensor | None = None, **kwargs)
+        wrapped_model.fit(X_train_tensor, y_train_tensor)
+
+        # call wrapper's predict()
         # https://opendataval.github.io/opendataval.model.html#opendataval.model.api.ClassifierSkLearnWrapper.predict
+        y_pred = wrapped_model.predict(X_test_tensor)
+        # TODO: convert back to df or np array
 
-    true_label = dtest.get_label()
-    preds = [np.where(x == np.max(x))[0][0] for x in ypred]
-    acc = accuracy_score(true_label, preds)
+    # true_label = dtest.get_label()  # TODO what to do if X_test_tensor doesn't have label?
+    preds = [np.where(x == np.max(x))[0][0] for x in y_pred]
+
+    # https://opendataval.github.io/opendataval.html#module-opendataval.metrics
+    # acc = accuracy_score(true_label, preds) # TODO what to do about calculating accuracy? are we using one-hot encoding?
+    acc = accuracy_score(y_test, preds) #y_test is true label
+
     print("Accuracy:", acc)
-    return trained_model, acc, true_label, preds
+    # return trained_model, acc, true_label, preds
+    # TODO okay to return wrapped model?
+    return wrapped_model, acc, preds
 
+def test():
+    pass
 
 #########################################################################################
 ######### HELPER/INTERNAL FUNCTIONS
 #########################################################################################
 
-def cv(params, X_train, y_train, features=None, nfold=3,
+def cv(params, X_train : pd.DataFrame, y_train : pd.DataFrame, features=None, nfold=3,
        folds=None, metrics=(), obj=None, feval=None,
        maximize=False, early_stopping_rounds=3,
        as_pandas=True, verbose_eval=None, show_stdv=True, seed=1234,
@@ -360,7 +391,7 @@ def cv(params, X_train, y_train, features=None, nfold=3,
         features selected to be trained
     nfold : int : 3
         Number of folds in CV.
-    folds : a KFold or StratifiedKFold instance or list of fold indeces
+    folds : a KFold or StratifiedKFold instance or list of fold indices
         Sklearn KFolds or StratifiedKFolds object.
         Alternatively may explicitly pass sample indices for each fold.
         For ``n`` folds, **folds** should be a length ``n`` list of tuples.
@@ -455,54 +486,102 @@ def cv(params, X_train, y_train, features=None, nfold=3,
     callbacks_before_iter = [cb for cb in callbacks if cb.__dict__.get('before_iteration', False)]
     callbacks_after_iter = [cb for cb in callbacks if not cb.__dict__.get('before_iteration', False)]
 
-    '''
-    TODO:
-    scikit learn ways to do this, other packages?
-    how xgboost is currently doing it for cv; look into xgboost for callbacks
-    package: optuna: hyperparam optimization--use by next stage of package (effective for DL);
-    could be worth trying to use this; works with scikit learn, rf, etc.
-    capable of doing what we want to do, applicable for various model types
-    optuna has own system for callback tracking (more up to date)
-    callbacks: for ML iterating
-    '''
     num_boost_round = kwargs.get('num_boost_round', None)
+
+    def aggcv(rlist, wt_list):
+        '''
+        Aggregate cross-validation results. Modified to use spatial
+        data with statistical features without risking data bleed.
+
+        Parameters
+        ----------
+        rlist : list
+            list of results from each cross-validation fold
+        wt_list : list
+            list of weights for each fold to apply to result
+        Returns
+        -------
+        results : list
+            list of weighted results based on the desired metric. Will output
+            a list of tuple containing the result, mean, and stdev.
+        '''
+        cvmap = {}
+        idx = rlist[0].split()[0]
+        for line in rlist:
+            arr = line.split()
+            assert idx == arr[0]
+            for metric_idx, it in enumerate(arr[1:]):
+                if not isinstance(it, STRING_TYPES):
+                    it = it.decode()
+                k, v = it.split(':')
+                if (metric_idx, k) not in cvmap:
+                    cvmap[(metric_idx, k)] = []
+                cvmap[(metric_idx, k)].append(float(v))
+        msg = idx
+        results = []
+        for (metric_idx, k), v in sorted(cvmap.items(), key=lambda x: x[0][0]):
+            v = np.array(v)
+            if not isinstance(msg, STRING_TYPES):
+                msg = msg.decode()
+            mean = np.average(v, weights=wt_list)
+            std = np.sqrt(np.average((v-mean)**2, weights=wt_list))
+            results.extend([(k, mean, std)])
+        return results
+
     if num_boost_round:
-        for i in range(num_boost_round):
-            for cb in callbacks_before_iter:
-                cb(CallbackEnv(model=None,
-                               cvfolds=cvfolds,
-                               iteration=i,
-                               begin_iteration=0,
-                               end_iteration=num_boost_round,
-                               rank=0,
-                               evaluation_result_list=None))
-            for fold in cvfolds:
-                fold.update(i, obj)
-            res = aggcv([f.eval(i, feval) for f in cvfolds], wt_list)
-            for key, mean, std in res:
-                if key + '-mean' not in results:
-                    results[key + '-mean'] = []
-                if key + '-std' not in results:
-                    results[key + '-std'] = []
-                results[key + '-mean'].append(mean)
-                results[key + '-std'].append(std)
-            try:
-                for cb in callbacks_after_iter:
-                    cb(CallbackEnv(model=None,
-                                   cvfolds=cvfolds,
-                                   iteration=i,
-                                   begin_iteration=0,
-                                   end_iteration=num_boost_round,
-                                   rank=0,
-                                   evaluation_result_list=res))
-            except EarlyStopException as e:
-                for k in results:
-                    results[k] = results[k][:(e.best_iteration + 1)]
-                break
-    else:
-        # TODO: what to do for RandomForestClassifier?
-        # use generalizable callback
+        # for i in range(num_boost_round):
+        #     for cb in callbacks_before_iter:
+        #         cb(CallbackEnv(model=None,
+        #                        cvfolds=cvfolds,
+        #                        iteration=i,
+        #                        begin_iteration=0,
+        #                        end_iteration=num_boost_round,
+        #                        rank=0,
+        #                        evaluation_result_list=None))
+        #     for fold in cvfolds:
+        #         fold.update(i, obj)
+        #     res = aggcv([f.eval(i, feval) for f in cvfolds], wt_list)
+        #     for key, mean, std in res:
+        #         if key + '-mean' not in results:
+        #             results[key + '-mean'] = []
+        #         if key + '-std' not in results:
+        #             results[key + '-std'] = []
+        #         results[key + '-mean'].append(mean)
+        #         results[key + '-std'].append(std)
+        #     try:
+        #         for cb in callbacks_after_iter:
+        #             cb(CallbackEnv(model=None,
+        #                            cvfolds=cvfolds,
+        #                            iteration=i,
+        #                            begin_iteration=0,
+        #                            end_iteration=num_boost_round,
+        #                            rank=0,
+        #                            evaluation_result_list=res))
+        #     except EarlyStopException as e:
+        #         for k in results:
+        #             results[k] = results[k][:(e.best_iteration + 1)]
+        #         break
         pass
+    else:
+        # TODO use generalizable callback?
+        # acc use Optuna instead
+        # keep data separate, 
+        for cb in callbacks_before_iter:
+            # cb(params)
+            pass
+        for fold in cvfolds:
+            fold.update(i, obj) # TODO how to update if there are no boosting rounds?
+        res = aggcv([f.eval(i, feval) for f in cvfolds], wt_list)
+        for key, mean, std in res:
+            if key + '-mean' not in results:
+                results[key + '-mean'] = []
+            if key + '-std' not in results:
+                results[key + '-std'] = []
+            results[key + '-mean'].append(mean)
+            results[key + '-std'].append(std)
+        for cb in callbacks_after_iter:
+            # cb(params)
+            pass
 
     if as_pandas:
         results = pd.DataFrame.from_dict(results)
@@ -510,48 +589,8 @@ def cv(params, X_train, y_train, features=None, nfold=3,
     return results
 
 
-def aggcv(rlist, wt_list):
-    '''
-    Aggregate cross-validation results. Modified to use spatial
-    data with statistical features without risking data bleed.
-
-    Parameters
-    ----------
-    rlist : list
-        list of results from each cross-validation fold
-    wt_list : list
-        list of weights for each fold to apply to result
-    Returns
-    -------
-    results : list
-        list of weighted results based on the desired metric. Will output
-        a list of tuple containing the result, mean, and stdev.
-    '''
-    cvmap = {}
-    idx = rlist[0].split()[0]
-    for line in rlist:
-        arr = line.split()
-        assert idx == arr[0]
-        for metric_idx, it in enumerate(arr[1:]):
-            if not isinstance(it, STRING_TYPES):
-                it = it.decode()
-            k, v = it.split(':')
-            if (metric_idx, k) not in cvmap:
-                cvmap[(metric_idx, k)] = []
-            cvmap[(metric_idx, k)].append(float(v))
-    msg = idx
-    results = []
-    for (metric_idx, k), v in sorted(cvmap.items(), key=lambda x: x[0][0]):
-        v = np.array(v)
-        if not isinstance(msg, STRING_TYPES):
-            msg = msg.decode()
-        mean = np.average(v, weights=wt_list)
-        std = np.sqrt(np.average((v-mean)**2, weights=wt_list))
-        results.extend([(k, mean, std)])
-    return results
-
-
-def mknfold(X_train, y_train, nfold, evals=(), features=None, **kwargs):
+def mknfold(X_train : pd.DataFrame, y_train : pd.DataFrame,
+            nfold : int, evals=(), features=None, **kwargs):
     '''
     Makes n folds in input data.
 
@@ -586,7 +625,7 @@ def mknfold(X_train, y_train, nfold, evals=(), features=None, **kwargs):
         list of weights for each fold. This is the size of each fold
     '''
 
-    def bin_fold(X_train, nfold):
+    def bin_fold(X_train : pd.DataFrame, nfold: int):
         '''
         Bins data into their respective folds.
         Parameters
@@ -598,8 +637,8 @@ def mknfold(X_train, y_train, nfold, evals=(), features=None, **kwargs):
         Returns
         -------
         bin_list : list
-            list of list of indeces for each fold. For every fold in data,
-            will have list of indeces which will be used as testing data
+            list of list of indices for each fold. For every fold in data,
+            will have list of indices which will be used as testing data
         wt_list : list
             list of weights for each fold. This is the size of each fold
         '''
@@ -663,27 +702,9 @@ def pandas_df_to_dmatrix(df, label):
     return DMatrix(df, label=label)
 
 
-def pandas_df_to_pytorch_tensor(df: pd.DataFrame):
-    '''
-    (XGBoost-specific)
-    Converts a pandas DataFrame to a PyTorch tensor.
-
-    Parameters
-    ----------
-    df: pandas DataFrame
-        The dataframe to convert.
-
-    Returns
-    -------
-    torch: PyTorch.torch
-        The resulting Pytorch tensor.
-    '''
-    return torch.tensor(df.values)
-
-
-class XGBoostCallback(xgb.callback.TrainingCallback):
-    '''
-    To replace CallbackEnv? TODO - reimplement this?
-    '''
-    def __init__(self):
-        pass
+# class XGBoostCallback(xgb.callback.TrainingCallback):
+#     '''
+#     To replace CallbackEnv TODO reimplement this?
+#     '''
+#     def __init__(self):
+#         pass
