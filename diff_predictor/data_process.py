@@ -39,7 +39,7 @@ def generate_fullstats(dataset_path, filelist, targets, target_col_name='Target'
                     if fstats_tot is None:
                         fstats_tot = fstats
                     else:
-                        fstats_tot = fstats_tot.concat(fstats, ignore_index=True)
+                        fstats_tot = pd.concat([fstats_tot, fstats], ignore_index=True)
                     video_num += 1   
     return fstats_tot
 

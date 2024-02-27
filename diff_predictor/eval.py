@@ -3,9 +3,6 @@ import numpy
 import scipy.stats
 from seaborn import heatmap
 
-if 'diff_predictor.core' not in sys.modules:
-    from diff_predictor import core
-
 
 def perf_meas(y_actual, y_pred, cls, verbose=True):
     '''
