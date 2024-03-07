@@ -2,6 +2,7 @@
 # diff_predictor
 
 [![Build Status](https://github.com/Nance-Lab/diff_predictor/actions/workflows/ci.yml/badge.svg)](https://github.com/Nance-Lab/diff_predictor/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Nance-Lab/diff_predictor/actions/workflows/codeql.yml/badge.svg)](https://github.com/Nance-Lab/diff_predictor/actions/workflows/codeql.yml)
 [![Coverage Status](https://coveralls.io/repos/github/Nance-Lab/diff_predictor/badge.svg?branch=main)](https://coveralls.io/github/Nance-Lab/diff_predictor?branch=main)
 
 ![Logo](https://avatars0.githubusercontent.com/u/64927580?s=200&v=4)
