@@ -9,30 +9,32 @@ from xgboost import Booster, XGBClassifier
 
 if __name__ == '__main__':
 
-  X_train, y_train, features, init_params = None, None, None, None
-  nfold, early_stopping_rounds = 5, 3
-  model_type = rf_classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+  # TODO: give these values
+  X_train, y_train = None, None
+  X_val, y_val = None, None
+  X_test, y_test = None
 
-  best_model, best_param, best_eval = mpt.paramsearch(X_train, y_train, \
-                                                      features, init_params)  # return metrics
+  hparam = {'max_depth' : (1e-10, 1e10, True)}
+  model = rf_classifier = RandomForestClassifier()
+  setattr(rf_classifier, 'n_estimators', 10)
 
-  dtrain, dtest = None, None
+  # xgboost-specific:
+  # dtrain, dtest = None, None
   # evals = [(dtrain, 'train'), (dval, 'eval')]
   # num_round = 804
+  # booster = xgb.Booster()
+  # sklearn_xgb = xgb.XGBClassifier()
+  # nfold, early_stopping_rounds = 5, 3
 
-  rf_classifier = RandomForestClassifier(n_estimators=100, random_state=42)
-  booster = xgb.Booster()
-  sklearn_xgb = xgb.XGBClassifier()
+  # hyperparameter tuning
+  best_model, best_param = mpt.paramsearch(model, X_train, y_train, X_val, y_val, hparam)
 
   # train model/make predictions
-  trained_rf_classifier, accuracy = mpt.train(rf_classifier, best_param, dtrain, dtest)
-  trained_booster, accuracy = mpt.train(booster, best_param, dtrain, dtest)
-  trained_booster, accuracy = mpt.train(sklearn_xgb, best_param, dtrain, dtest)
+  trained_model, train_accuracy = mpt.train(best_model, X_train, y_train)
+  tested_model, test_accuracy = mpt.test(best_model, X_test, y_test)
 
-  y_test, preds = None, None
-  metrics.confusion_matrix(y_test, preds) # get confusion matrix
 
-  # do shap analysis -dont worry too much ab this yet
+  # metrics.confusion_matrix(y_test, preds) # get confusion matrix
 
-  # TODO: write test functions, xgboost
-  # generalize
+  # TODO later: shap analysis
+  # TODO later: write test functions

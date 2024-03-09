@@ -6,6 +6,7 @@ import xgboost as xgb
 import opendataval
 import torch
 import tensorflow as tf
+import optuna
 
 from xgboost import callback, DMatrix, Booster
 from xgboost.callback import EarlyStopping, EvaluationMonitor
@@ -17,9 +18,9 @@ from sklearn import metrics
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import Cls
+from sklearn.utils import all_estimators  # get all classifiers in sklearn
 
 from opendataval.model import ClassifierSkLearnWrapper
-from opendataval.model.metrics import accuracy
 
 # from odv.dataloader import DataFetcher # fetcher has covar/label dim information
 # from odv.model import ModelFactory
@@ -32,272 +33,84 @@ validation splitting appropriately have no leakage of trajectories that
 are in the same microenvironment.
 '''
 
-#pass in init_params
-
-
-def paramsearch(X_train : pd.DataFrame, y_train : pd.DataFrame,
-                features, init_params, nfold=5,
-                early_stopping_rounds=3, **kwargs):
+def paramsearch(model, X_train, y_train, X_val, y_val, hparam):
     '''
-    Extensive parameter search for a model listed on scikit-learn.
-    Uses random search to tune hyperparameters to a .
+    Performs hyperparameter tuning and returns the best hyperparameters found for the given model.
 
     Parameters
     ----------
+    model : scikit-learn model TODO: possibly wrapped
+        TODO later: or could be list of models
     X_train : pandas.DataFrame
-        X data to be trained
+        Training data for fitting.
     y_train : pandas.DataFrame
-        y data to be trained
-    features : list
-        features selected to be trained
-    init_params : dict
-        initial parameters for model. This will be used in the initial
-        calculation for evaluation and will be compared to the next params
-        in grid search
-    nfold : int : 5
-        Number of folds for cross-validation
-    early_stopping_rounds : int : 3
-        Number of rounds allowed to accept converge
-
-    Optional Parameters
-    -------------------
-    (xgboost) num_boost_round : int
-        Maximum number of boosted decision tree rounds to run through
-    use_gpu : boolean : False
-        Use cuda processing if gpu supports it
-    metrics : list
-        Metrics to track
-    early_break : int : 5
-        maximum number of times the random gridsearch while difference in
-        starting and ending evaluation value is within the given threshold
-    thresh : float : 0.01
-        allowed threshold between difference in starting and ending evaluation
-        value
-    seed : int : 1111
-        random seed to start on.
-    gs_params : dict
-        extra parameters to use in gridsearch. Note: function will not optimize
-        these parameters
+        Training data for fitting.
+    X_val: pandas.DataFrame
+        Validation data for hyperparameter tuning.
+    y_val: pandas.DataFrame
+        Validation data for hyperparameter tuning.
+    hparam : dict
+        Dictionary of hyperparameters and their ranges to test out.
+        Should be formatted like: {hyperparam: (low, high, log_val)}
+        e.g. param = {'learning_rate_init': (1e-5, 1e-3, True)}
 
     Returns
     -------
-    best_model : dataframe
-        results of best cross-validated model with metrics of each boosted round
-    best_param : dict
-        hyperparameters of best found model
-    best_eval : float
-        resulting evaluation metric of best boosted round metric
-    (xgboost) best_boost_rounds : int, or None if num_boost_round unspecified
-        number of boost rounds to converge
+    model: scikit-learn model
+        The trained model with the best hyperparameter values.
+    best_params :
+        The best values found for the hyperparameters given.
     '''
-    params = {**init_params}
-
-    if 'use_gpu' in kwargs and kwargs['use_gpu']:
-        # GPU integration will cut cv time in ~half:
-        params.update({'gpu_id': 0,
-                       'tree_method': 'gpu_hist',
-                       'predictor': 'gpu_predictor'})
-
-    if 'metrics' not in kwargs:
-        metrics = {params['eval_metric']}
-    else:
-        metrics = kwargs['metrics']
-        metrics.append(params['eval_metric'])
-
-    if params['eval_metric'] in ['map', 'auc', 'aucpr']:
-        eval_f = operator.gt
-    else:
-        eval_f = operator.lt
-
-    early_break = kwargs.get('early_break', 5)
-    thresh = kwargs.get('thresh', 0.01)
-    seed = kwargs.get('seed', 1111)
-
-    gs_params = {'subsample': np.random.choice([i/10. for i in range(5, 11)], 3),
-                'colsample': np.random.choice([i/10. for i in range(5, 11)], 3),
-                'eta': np.random.choice([.005, .01, .05, .1, .2, .3], 3),
-                'gamma': [0] + list(np.random.choice([0.01, 0.001, 0.2, 0.5, 1.0,
-                                                        2.0, 3.0, 5.0, 10.0], 3)),
-                'max_depth': [10] + list(np.random.randint(1, 10, 3)),
-                'min_child_weight': [0, 10] + list(np.random.randint(0, 10, 3))}
-
-    if 'gs_params' in kwargs:
-        gs_params.update(kwargs['gs_params'])
-
-    best_param = params
-
-    num_boost_round = kwargs.get('num_boost_round', None)
-
-    if num_boost_round:  # xgboost
-        best_model = cv(params,
-                        X_train,
-                        y_train,
-                        features,
-                        nfold=nfold,
-                        early_stopping_rounds=early_stopping_rounds,
-                        metrics=metrics,
-                        num_boost_round=num_boost_round)
-        best_boost_rounds = best_model[f"test-{params['eval_metric']}-mean"].idxmin()
-    else:  # general sci-kit learn models
-        best_model = cv(params,
-                        X_train,
-                        y_train,
-                        features,
-                        nfold=nfold,
-                        early_stopping_rounds=early_stopping_rounds,
-                        metrics=metrics)
-
-    best_eval = best_model[f"test-{params['eval_metric']}-mean"].min()
-
-    def _gs_helper(var1n, var2n, best_model, best_param, best_eval, **kwargs):
+    def objective(trial):
         '''
-        Helper function for paramsearch.
+        trial : optuna.trial
+            Used for suggesting values for hyperparameters.
         '''
-        local_param = {**best_param}
-        for var1, var2 in gs_param:
-            print(f"Using CV with {var1n}={{{var1}}}, {var2n}={{{var2}}}")
-            local_param[var1n] = var1
-            local_param[var2n] = var2
-            cv_model = cv(local_param,
-                          X_train,
-                          y_train,
-                          features,
-                          nfold=nfold,
-                          early_stopping_rounds=early_stopping_rounds,
-                          metrics=metrics,
-                          **kwargs)
-            cv_eval = cv_model[f"test-{local_param['eval_metric']}-mean"].min()
-            if 'best_boost_rounds' in kwargs:  # xgboost
-                boost_rounds = cv_model[f"test-{local_param['eval_metric']}-mean"].idxmin()
-                if (eval_f(cv_eval, best_eval)):
-                    best_model = cv_model
-                    best_param[var1n] = var1
-                    best_param[var2n] = var2
-                    best_eval = cv_eval
-                    if not best_boost_rounds:
-                        best_boost_rounds = boost_rounds  # only update if not None
-                    print(f"New best param found: "
-                          f"{local_param['eval_metric']} = {{{best_eval}}}, "
-                          f"boost_rounds = {{{best_boost_rounds}}}")
-            else:  # general sci-kit learn models
-                if (eval_f(cv_eval, best_eval)):
-                    best_model = cv_model
-                    best_param[var1n] = var1
-                    best_param[var2n] = var2
-                    best_eval = cv_eval
-                    print(f"New best param found: "
-                          f"{local_param['eval_metric']} = {{{best_eval}}}")
-        if 'best_boost_rounds' in kwargs:  # xgboost
-            return (best_model, best_param, best_eval, best_boost_rounds)
-        else:  # general sci-kit learn models
-            return (best_model, best_param, best_eval)
+        # trial.suggest_categorical("classifier", ["SVC", "RandomForest"]) try this later
+        # TODO later: function that does multiple, go through list of models, pass this
+        for hyperparam, val in hparam.items():
+            low, high, log_TF = val[0], val[1], val[2]
+            if isinstance(low, int):
+                suggested_val = trial.suggest_int(hyperparam, low, high, log=log_TF)
+                setattr(model, hyperparam, suggested_val)
+            elif isinstance(low, float):
+                suggested_val = trial.suggest_float(hyperparam, low, high, log=log_TF)
+                setattr(model, hyperparam, suggested_val)
 
-    while early_break > 0:
-        np.random.seed(seed)
-        best_eval_init = best_eval
-        gs_param = {
-            (subsample, colsample)
-            for subsample in gs_params['subsample']
-            for colsample in gs_params['colsample']
-        }
-        if best_boost_rounds:  # xgboost
-            best_model, best_param, best_eval, best_boost_rounds = _gs_helper('subsample',
-                                                                              'colsample_bytree',
-                                                                              best_model,
-                                                                              best_param,
-                                                                              best_eval,
-                                                                              best_boost_rounds)
-        else:  # general sci-kit learn models
-            best_model, best_param, best_eval = _gs_helper('subsample',
-                                                           'colsample_bytree',
-                                                           best_model,
-                                                           best_param,
-                                                           best_eval)
-        gs_param = {
-            (max_depth, min_child_weight)
-            for max_depth in gs_params['max_depth']
-            for min_child_weight in gs_params['min_child_weight']
-        }
-        if best_boost_rounds: # xgboost
-            best_model, best_param, best_eval, best_boost_rounds = _gs_helper('max_depth',
-                                                                              'min_child_weight',
-                                                                              best_model,
-                                                                              best_param,
-                                                                              best_eval,
-                                                                              best_boost_rounds)
-        else:  # general sci-kit learn models
-            best_model, best_param, best_eval = _gs_helper('max_depth',
-                                                           'min_child_weight',
-                                                            best_model,
-                                                            best_param,
-                                                            best_eval)
-        gs_param = {
-            (eta, gamma)
-            for eta in gs_params['eta']
-            for gamma in gs_params['gamma']
-        }
-        if best_boost_rounds:  # xgboost
-            best_model, best_param, best_eval, best_boost_rounds = _gs_helper('eta',
-                                                                              'gamma',
-                                                                              best_model,
-                                                                              best_param,
-                                                                              best_eval,
-                                                                              best_boost_rounds)
-        else:  # general sci-kit learn models
-            best_model, best_param, best_eval = _gs_helper('eta',
-                                                           'gamma',
-                                                            best_model,
-                                                            best_param,
-                                                            best_eval)
-        if (abs(best_eval_init - best_eval) < thresh):
-            early_break -= 1
-        seed += 1
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_val)
+        return accuracy_score(y_val, y_pred) # use scikit-learn's accuracy_score()
 
-    if num_boost_round:  # xgboost
-        return (best_model, best_param, best_eval, best_boost_rounds)
-    else:  # general sci-kit learn models
-        return (best_model, best_param, best_eval)
+    study = optuna.create_study(direction='maximize')
+    study.optimize(objective, n_trials=100)
+    return study.best_params
 
 
 def train(model, param, X_train : pd.DataFrame, y_train : pd.DataFrame,
-          X_test : pd.DataFrame, y_test : pd.DataFrame,
           dval=False, evals=None, num_round=2000, verbose=True):
     '''
+    Trains a model listed on scikit-learn on MPT data and returns the trained model.
+
     Parameters
     ----------
-    model:
-        A model (from scikit-learn) to be trained and returned.
+    model : model from scikit-learn
+        Model to be trained and returned.
     param : dict
-        dictionary of parameters used for training.
-        max_depth : maximum allowed depth of a tree,
-        eta : step size shrinkage used to prevent overfitting,
-        min_child_weight : minimum sum of instance weight (hessian)
-                           needed in a child,
-        verbosity : verbosity of printed messages,
-        objective : learning objective,
-        num_class : number of classes in prediction,
-        gamma : minimum loss reduction required to make a further
-            partition on a leaf node of the tree,
-        subsample : subsample ratio of the training instances,
-        colsample_bytree : subsample ratio of columns when
-                           constructing each tree,
-        eval_metric : eval metric used for validation data
+        Dictionary of parameters used for training.
     X_train : pandas.DataFrame
-        training data for fitting.
+        Training data for fitting.
     y_train : pandas.DataFrame
-        training data for fitting.
-    X_test : pandas.DataFrame
-        labels to predict.
+        Training data for fitting.
 
     Optional Parameters
     -------------------
-    (xgboost) dval : xgboost.DMatrix : None TODO xgboost specific?
-        optional evaluation data for fitting.
     evals : list : None
-        evaluation configuration. Will report results in this form. If dval is
+        Evaluation configuration. Will report results in this form. If dval is
         used, will automatically update to [(dtrain, `train`), (dval, `eval`)].
         Will use the last evaluation value in the list to test for loss
         convergence
+    (xgboost) dval : xgboost.DMatrix : None
+        Evaluation data for fitting.
     (xgboost) num_rounds : int : 2000
         Number of boosting rounds to go through when training. A higher number
         makes a more complex ensemble model.
@@ -306,33 +119,22 @@ def train(model, param, X_train : pd.DataFrame, y_train : pd.DataFrame,
 
     Returns
     -------
-    model : model from scikit-learn
+    model : opendataval.ClassifierSkLearnWrapper
         Resulting trained model.
-    acc : float
-        Accuracy of trained model.
-    label: TODO - what type? not mentioned in predxgboost file
-    preds: TODO - what type? not mentioned in predxgboost file
-        Predictions from trained model.
     '''
-
-    # xtrain, y_train
-    # X_val, y_val
 
     # if evals is None:
     #     evals = [(dtrain, 'train')]
     # if dval is not None and (dval, 'eval') not in evals:
     #     evals += [(dval, 'eval')]
 
-    y_pred = None
-    # y_train, y_test vectors
-
     if isinstance(model, xgb.Booster) or isinstance(model, xgb.XGBClassifier):  # xgboost
         # model.fit(X_train, y_train, eval_set=[(X_test, y_test)])
-        # TODO - might want to use this instead to conform to sklearn
+        # TODO later: might want to use this instead to conform to sklearn
         # trained_model = xgb.train(param, dtrain, num_round, evals, verbose_eval=verbose)
         # y_pred = trained_model.predict(X_test_tensor)
-        pass
         # 50-50 split of test and val
+        pass
     else:  # general sci-kit learn models
         num_classes = param['num_class']
         wrapped_model = ClassifierSkLearnWrapper(model, num_classes)
@@ -340,36 +142,57 @@ def train(model, param, X_train : pd.DataFrame, y_train : pd.DataFrame,
         # convert given data to Tensors
         X_train_tensor = torch.tensor(X_train.values)
         y_train_tensor = torch.tensor(y_train.values)
-        X_test_tensor = torch.tensor(X_test.values)
 
         # train by calling wrapper's fit()
         # https://opendataval.github.io/opendataval.model.html#opendataval.model.api.ClassifierSkLearnWrapper.fit
         wrapped_model.fit(X_train_tensor, y_train_tensor)
 
-        # call wrapper's predict()
-        # https://opendataval.github.io/opendataval.model.html#opendataval.model.api.ClassifierSkLearnWrapper.predict
-        y_pred = wrapped_model.predict(X_test_tensor)
-        # TODO: convert back to df or np array
+    return wrapped_model
 
-    # true_label = dtest.get_label()  # TODO what to do if X_test_tensor doesn't have label?
+def test(model, X_test, y_test):
+    '''
+    Tests a model listed on scikit-learn on MPT data and returns the results.
+
+    Parameters
+    ----------
+    model : opendataval.ClassifierSkLearnWrapper
+        Model on which to test predictions.
+    X_test : pandas.DataFrame
+        Labels to predict.
+    y_test : pandas.DataFrame
+        True labels.
+
+    Returns
+    -------
+    acc : float
+        Accuracy of model.
+    preds: Tensor
+        Predictions from model.
+    '''
+    X_test_tensor = torch.tensor(X_test.values)
+    # call wrapper's predict()
+    # https://opendataval.github.io/opendataval.model.html#opendataval.model.api.ClassifierSkLearnWrapper.predict
+
+    # TODO: convert back to df or np array
+    y_pred = model.predict(X_test_tensor)
+
     preds = [np.where(x == np.max(x))[0][0] for x in y_pred]
 
+    # TODO: should test data be used in train()?
     # https://opendataval.github.io/opendataval.html#module-opendataval.metrics
-    # acc = accuracy_score(true_label, preds) # TODO what to do about calculating accuracy? are we using one-hot encoding?
-    acc = accuracy_score(y_test, preds) #y_test is true label
+    acc = accuracy_score(y_test, preds)  # y_test is true label
 
     print("Accuracy:", acc)
-    # return trained_model, acc, true_label, preds
-    # TODO okay to return wrapped model?
-    return wrapped_model, acc, preds
+    return acc, preds
+    # TODO okay to return wrapped model? yes, bc kinda hard to unwrap...
 
-def test():
-    pass
 
 #########################################################################################
 ######### HELPER/INTERNAL FUNCTIONS
 #########################################################################################
 
+# TODO later: dont do random 5-fold for OptunaSearchCV
+# can ignore cv for now
 def cv(params, X_train : pd.DataFrame, y_train : pd.DataFrame, features=None, nfold=3,
        folds=None, metrics=(), obj=None, feval=None,
        maximize=False, early_stopping_rounds=3,
@@ -382,13 +205,13 @@ def cv(params, X_train : pd.DataFrame, y_train : pd.DataFrame, features=None, nf
     Parameters
     ----------
     params : dict
-        Model params
+        Model parameters.
     X_train : pandas.DataFrame
-        X data to be trained
+        X data to be trained.
     y_train : pandas.DataFrame
-        y data to be trained
+        y data to be trained.
     features : list
-        features selected to be trained
+        Features selected to be trained.
     nfold : int : 3
         Number of folds in CV.
     folds : a KFold or StratifiedKFold instance or list of fold indices
@@ -565,7 +388,7 @@ def cv(params, X_train : pd.DataFrame, y_train : pd.DataFrame, features=None, nf
     else:
         # TODO use generalizable callback?
         # acc use Optuna instead
-        # keep data separate, 
+        # keep data separate,
         for cb in callbacks_before_iter:
             # cb(params)
             pass
@@ -704,7 +527,7 @@ def pandas_df_to_dmatrix(df, label):
 
 # class XGBoostCallback(xgb.callback.TrainingCallback):
 #     '''
-#     To replace CallbackEnv TODO reimplement this?
+#     To replace CallbackEnv TODO later: reimplement this?
 #     '''
 #     def __init__(self):
 #         pass
