@@ -26,6 +26,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install flake8 pytest coverage pytest-cov
         pip install -r requirements.txt
+        python setup.py install
 
     - name: Lint with flake8
       run: |
