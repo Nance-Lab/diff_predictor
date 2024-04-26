@@ -1,16 +1,15 @@
-# coverage == 7.4.3
-# coveralls == 3.3.1
-numpy == 1.21.6
-scipy == 1.7.3
-pandas == 1.3.2
-matplotlib == 3.5.1
-seaborn == 0.12.2
-ipython == 7.34.0
-ipykernel >= 6.0.0
-jupyter == 1.0.0
-scikit-learn == 1.0.2
-boto3 == 1.26.118
-shapely == 2.0.1
+numpy
+scipy
+pandas
+matplotlib
+seaborn
+ipython
+ipykernel
+jupyter
+scikit-learn
+boto3
+shapely
 shap == 0.41.0
 xgboost == 1.2.1
-hypothesis >= 6.14.3
+hypothesis
+pillow<10.0.0

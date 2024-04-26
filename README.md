@@ -1,9 +1,9 @@
 
 # diff_predictor
 
-[![MIT License](https://img.shields.io/apm/l/atomic-design-ui.svg?)](https://github.com/tterb/atomic-design-ui/blob/master/LICENSEs)
 [![Build Status](https://github.com/Nance-Lab/diff_predictor/actions/workflows/ci.yml/badge.svg)](https://github.com/Nance-Lab/diff_predictor/actions/workflows/ci.yml)
-[![Coverage Status](https://coveralls.io/repos/github/Nance-Lab/diff_predictor/badge.svg?branch=main)](https://coveralls.io/github/Nance-Lab/diff_predictor?branch=main)
+[![CodeQL](https://github.com/Nance-Lab/diff_predictor/actions/workflows/codeql.yml/badge.svg)](https://github.com/Nance-Lab/diff_predictor/actions/workflows/codeql.yml)
+[![codecov](https://codecov.io/gh/Nance-Lab/diff_predictor/graph/badge.svg?token=6EMNQZI5YI)](https://codecov.io/gh/Nance-Lab/diff_predictor)
 
 ![Logo](https://avatars0.githubusercontent.com/u/64927580?s=200&v=4)
 
