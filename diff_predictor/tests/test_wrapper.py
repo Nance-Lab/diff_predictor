@@ -34,7 +34,7 @@ data_dir = getcwd() + '/testing_data/'
 filelist = [f for f in listdir(data_dir) if isfile(join(data_dir, f)) and 'feat' in f]
 assert(len(filelist) == 15)
 
-# generate single csv from filelist
+# Generate single csv from filelist
 fstats_tot_age = data_process.generate_fullstats(data_dir, filelist, ['P14', 'P35', 'P70'], 'age')
 
 feature_list = [
@@ -76,7 +76,7 @@ target = 'age'
 NUM_CLASSES = 3
 
 ecm = fstats_tot_age[feature_list + [target, 'Track_ID', 'X', 'Y']] # ecm=extra cellular matrix, include features, columns X Y
-# get indexes, important for binning, dont need std dev
+# Get indexes, important for binning, dont need std dev
 ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(axis=1)]  # Remove nan and inf data points
 print('ecm shape:', ecm.shape)
 
@@ -110,47 +110,30 @@ y_test = X_test['encoded_target']
 y_val = X_val['encoded_target']
 
 dtrain = X_train[features]
-# X_train has features we don't care about
 dtest = X_test[features]
 dval = X_val[features]
-
-
-# is spatial module actually needed? it's not defined anywhere
-# get_lengths-do sizes of outputs make sense (splitting)
-# TODO print len of each; make test
 
 print(f'Tot before split: {len(bal_ecm)}')
 print(f'Training: {len(X_train)} ({len(X_train) / len(bal_ecm):.3f}%)')
 print(f'Testing: {len(X_test)} ({len(X_test) / len(bal_ecm):.3f}%)')
 print(f'Evaluation: {len(X_val)} ({len(X_val) / len(bal_ecm):.3f}%)')
 
-# param = {'max_depth': 3,
-#          'eta': 0.005,
-#          'min_child_weight': 0,
-#          'verbosity': 0,
-#          'objective': 'multi:softprob',
-#          'num_class': 3,
-#          'silent': 'True', how much info it tells you ab model being trained; output
-#          'gamma': 5,
-#          'subsample': 0.15, less important
-#          'colsample_bytree': 0.8, less important
-#          'eval_metric': "mlogloss"}
-
 param = {
     'max_depth' : (1, 10, False),
     'eta': (0.005, 0.2, True),
     'min_child_weight': (0, 1, False),
-    'gamma': (1, 6, False)}
+    'gamma': (1, 6, False)
+}
 
-rf_model = RandomForestClassifier()
-# best_param = paramsearch(rf_model, param, dtrain, y_train, dval, y_val)
-# print('best hyperparameter values:', best_param)
-temp_best_param = {'max_depth': 7, 'eta': 0.012917148675308392, 'min_child_weight': 1, 'gamma': 6}
+# model_types = [RandomForestClassifier, SVC, LinearSVC] TODO
+model_types = [RandomForestClassifier]
 
-# # train model, make predictions
-trained_model, train_model = train(rf_model, temp_best_param, NUM_CLASSES, dtrain, y_train)
-# test_acc, test_pred = test(model, dtest, y_test)
-
-# TODO try diff type of classifier: SVM
-svc_model = SVC()
-lin_svc_model = LinearSVC()
+for model_type in model_types:
+    print(f"Model type: {model_type}")
+    # best_param = paramsearch(model_type, param, dtrain, y_train, dval, y_val)
+    # print('best hyperparameter values:', best_param)
+    # best_param = {'max_depth': 7, 'eta': 0.012917148675308392, 'min_child_weight': 1, 'gamma': 6}
+    trained_model = train(model_type, None, NUM_CLASSES, dtrain, y_train)
+    test_acc, test_pred = test(trained_model, dtest, y_test)
+    print(f"Test accuracy:{test_acc * 100: .2f}%")
+    print(f"Test predictions:{test_pred}")
