@@ -5,12 +5,12 @@ import numpy as np
 import opendataval
 import torch
 import optuna
+import sklearn
 
 from sklearn import metrics
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import make_classification
-from sklearn.utils import all_estimators  # get all classifiers in sklearn
 from sklearn.svm import SVC, LinearSVC
 
 from opendataval.model import ClassifierSkLearnWrapper
@@ -121,7 +121,12 @@ def train(model_type, param, num_class: int, X_train : pd.DataFrame, y_train : p
         Resulting trained model.
     '''
     # TODO: how to set model's hyperparameters? using setattr() or through kwargs?
-    wrapped_model = ClassifierSkLearnWrapper(model_type, num_class)
+    # breakpoint()
+    module = getattr(model_type, '__module__', '')
+    if module.startswith('sklearn.svm'):
+        wrapped_model = ClassifierSkLearnWrapper(model_type, num_class, probability=True)
+    else:
+        wrapped_model = ClassifierSkLearnWrapper(model_type, num_class)
 
     # Convert given data to Tensors
     X_train_tensor = torch.tensor(X_train.values)
@@ -132,8 +137,6 @@ def train(model_type, param, num_class: int, X_train : pd.DataFrame, y_train : p
         y_train_one_hot = torch.nn.functional.one_hot(y_train_tensor, num_classes=num_class).float()
     else:
         y_train_one_hot = y_train_tensor.float()
-
-    # print(f"After conversion, y_train_one_hot shape: {y_train_one_hot.shape}, dtype: {y_train_one_hot.dtype}")
 
     # Train by calling wrapper's fit()
     wrapped_model.fit(X_train_tensor, y_train_one_hot)

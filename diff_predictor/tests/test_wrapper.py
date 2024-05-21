@@ -15,8 +15,11 @@ from os.path import isfile, join
 from sklearn.preprocessing import scale, StandardScaler
 from numpy.random import permutation
 
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC, LinearSVC
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, \
+    GradientBoostingClassifier, AdaBoostClassifier, BaggingClassifier
+from sklearn.svm import SVC, NuSVC
+from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
+from sklearn.linear_model import RidgeClassifier, RidgeClassifierCV
 
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
@@ -24,10 +27,15 @@ from sklearn.metrics import classification_report, confusion_matrix
 from sklearn import preprocessing
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, recall_score, precision_score, f1_score
 
+from sklearn.utils import all_estimators
+
+
 import operator
 import shap
 
 from sklearn_model_wrapper import paramsearch, train, test
+
+import pdb
 
 data_dir = getcwd() + '/testing_data/'
 
@@ -53,7 +61,7 @@ feature_list = [
     'straightness', # Ratio of net displacement to the sum of squared step lengths
     'MSD_ratio',    # MSD ratio of the track
     'Deff1',        # Effective diffusion coefficient at 0.33 s
-    'Deff2',        # Effective diffusion coefficient at 3.3 s
+    # 'Deff2',        # Effective diffusion coefficient at 3.3 s
     'Mean alpha',
     'Mean D_fit',
     'Mean kurtosis',
@@ -69,7 +77,7 @@ feature_list = [
     'Mean straightness',
     'Mean MSD_ratio',
     'Mean Deff1',
-    'Mean Deff2'
+    # 'Mean Deff2'
 ]
 
 target = 'age'
@@ -77,7 +85,8 @@ NUM_CLASSES = 3
 
 ecm = fstats_tot_age[feature_list + [target, 'Track_ID', 'X', 'Y']] # ecm=extra cellular matrix, include features, columns X Y
 # Get indexes, important for binning, dont need std dev
-ecm = ecm[~ecm[list(set(feature_list) - set(['Deff2', 'Mean Deff2']))].isin([np.nan, np.inf, -np.inf]).any(axis=1)]  # Remove nan and inf data points
+
+ecm = ecm[~ecm[feature_list].isin([np.nan, np.inf, -np.inf]).any(axis=1)]  # Remove nan and inf data points
 print('ecm shape:', ecm.shape)
 
 bal_ecm = data_process.balance_data(ecm, target, random_state=1)
@@ -125,8 +134,27 @@ param = {
     'gamma': (1, 6, False)
 }
 
-# model_types = [RandomForestClassifier, SVC, LinearSVC] TODO
-model_types = [RandomForestClassifier]
+ensembles = [
+    RandomForestClassifier,
+    ExtraTreesClassifier,
+    GradientBoostingClassifier,
+    AdaBoostClassifier,
+    BaggingClassifier,
+]
+
+svms = [
+    NuSVC,
+    SVC
+]
+
+trees = [
+    DecisionTreeClassifier,
+    ExtraTreeClassifier
+]
+
+model_types = ensembles + svms + trees
+
+actual_test = np.array(y_test.tolist())
 
 for model_type in model_types:
     print(f"Model type: {model_type}")
@@ -135,5 +163,6 @@ for model_type in model_types:
     # best_param = {'max_depth': 7, 'eta': 0.012917148675308392, 'min_child_weight': 1, 'gamma': 6}
     trained_model = train(model_type, None, NUM_CLASSES, dtrain, y_train)
     test_acc, test_pred = test(trained_model, dtest, y_test)
-    print(f"Test accuracy:{test_acc * 100: .2f}%")
-    print(f"Test predictions:{test_pred}")
+    print(f"Accuracy:{test_acc * 100: .2f}%")
+    print(f"Predictions: {test_pred}")
+    print(f"Actual     : {actual_test}")
