@@ -156,6 +156,8 @@ model_types = ensembles + svms + trees
 
 actual_test = np.array(y_test.tolist())
 
+accuracies = []
+
 for model_type in model_types:
     print(f"Model type: {model_type}")
     # best_param = paramsearch(model_type, param, dtrain, y_train, dval, y_val)
@@ -163,6 +165,31 @@ for model_type in model_types:
     # best_param = {'max_depth': 7, 'eta': 0.012917148675308392, 'min_child_weight': 1, 'gamma': 6}
     trained_model = train(model_type, None, NUM_CLASSES, dtrain, y_train)
     test_acc, test_pred = test(trained_model, dtest, y_test)
+    accuracies.append(test_acc)
     print(f"Accuracy:{test_acc * 100: .2f}%")
     print(f"Predictions: {test_pred}")
     print(f"Actual     : {actual_test}")
+
+model_names = [
+    'RandomForestClassifier',
+    'ExtraTreesClassifier',
+    'GradientBoostingClassifier',
+    'AdaBoostClassifier',
+    'BaggingClassifier',
+    'NuSVC',
+    'SVC',
+    'DecisionTreeClassifier',
+    'ExtraTreeClassifier'
+]
+
+fig, ax = plt.subplots()
+y_pos = np.arange(len(model_names))
+accuracies = np.array(accuracies)
+
+ax.barh(y_pos, accuracies, align='center') # TODO use xerr
+ax.set_yticks(y_pos, labels=model_names)
+ax.invert_yaxis()  # labels read top-to-bottom
+ax.set_xlabel('Accuracy')
+ax.set_title('Sklearn Models vs. Test Accuracy')
+
+plt.show()
