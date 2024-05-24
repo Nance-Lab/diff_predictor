@@ -26,9 +26,7 @@ from sklearn import metrics
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn import preprocessing
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, recall_score, precision_score, f1_score
-
 from sklearn.utils import all_estimators
-
 
 import operator
 import shap
@@ -61,7 +59,6 @@ feature_list = [
     'straightness', # Ratio of net displacement to the sum of squared step lengths
     'MSD_ratio',    # MSD ratio of the track
     'Deff1',        # Effective diffusion coefficient at 0.33 s
-    # 'Deff2',        # Effective diffusion coefficient at 3.3 s
     'Mean alpha',
     'Mean D_fit',
     'Mean kurtosis',
@@ -77,7 +74,6 @@ feature_list = [
     'Mean straightness',
     'Mean MSD_ratio',
     'Mean Deff1',
-    # 'Mean Deff2'
 ]
 
 target = 'age'
@@ -160,9 +156,6 @@ accuracies = []
 
 for model_type in model_types:
     print(f"Model type: {model_type}")
-    # best_param = paramsearch(model_type, param, dtrain, y_train, dval, y_val)
-    # print('best hyperparameter values:', best_param)
-    # best_param = {'max_depth': 7, 'eta': 0.012917148675308392, 'min_child_weight': 1, 'gamma': 6}
     trained_model = train(model_type, None, NUM_CLASSES, dtrain, y_train)
     test_acc, test_pred = test(trained_model, dtest, y_test)
     accuracies.append(test_acc)
@@ -186,7 +179,7 @@ fig, ax = plt.subplots()
 y_pos = np.arange(len(model_names))
 accuracies = np.array(accuracies)
 
-ax.barh(y_pos, accuracies, align='center') # TODO use xerr
+ax.barh(y_pos, accuracies, align='center')
 ax.set_yticks(y_pos, labels=model_names)
 ax.invert_yaxis()  # labels read top-to-bottom
 ax.set_xlabel('Accuracy')

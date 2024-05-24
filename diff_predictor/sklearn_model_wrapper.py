@@ -82,8 +82,7 @@ def paramsearch(models, param, X_train, y_train, X_val, y_val):
 
     return best_params
 
-def train(model_type, param, num_class: int, X_train : pd.DataFrame, y_train : pd.DataFrame,
-          dval=False, evals=None, num_round=2000, verbose=True):
+def train(model_type, param, num_class: int, X_train : pd.DataFrame, y_train : pd.DataFrame):
     '''
     Trains a model listed on scikit-learn on MPT data and returns the trained model.
 
@@ -92,7 +91,7 @@ def train(model_type, param, num_class: int, X_train : pd.DataFrame, y_train : p
     model_type : model type from scikit-learn
         Model to be trained and returned.
     param : dict
-        Dictionary of parameters used for training.
+        Dictionary of parameters used for training. If None, uses default hyperparameters.
     num_class : int
         Number of classes to use
     X_train : pandas.DataFrame
@@ -100,28 +99,11 @@ def train(model_type, param, num_class: int, X_train : pd.DataFrame, y_train : p
     y_train : pandas.DataFrame
         Training data for fitting.
 
-    Optional Parameters
-    -------------------
-    evals : list : None
-        Evaluation configuration. Will report results in this form. If dval is
-        used, will automatically update to [(dtrain, `train`), (dval, `eval`)].
-        Will use the last evaluation value in the list to test for loss
-        convergence
-    (xgboost) dval : xgboost.DMatrix : None
-        Evaluation data for fitting.
-    (xgboost) num_rounds : int : 2000
-        Number of boosting rounds to go through when training. A higher number
-        makes a more complex ensemble model.
-    (xgboost) num_boost_round : int : None
-        Number of boosting iterations.
-
     Returns
     -------
     model : opendataval.ClassifierSkLearnWrapper
         Resulting trained model.
     '''
-    # TODO: how to set model's hyperparameters? using setattr() or through kwargs?
-    # breakpoint()
     module = getattr(model_type, '__module__', '')
     if module.startswith('sklearn.svm'):
         wrapped_model = ClassifierSkLearnWrapper(model_type, num_class, probability=True)
