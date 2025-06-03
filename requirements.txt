@@ -9,7 +9,6 @@ jupyter
 scikit-learn
 boto3
 shapely
-shap == 0.41.0
-xgboost == 1.2.1
-hypothesis
-pillow<10.0.0
+shap
+xgboost
+pillow<10.3.0
